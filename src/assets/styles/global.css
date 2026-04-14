@@ -1,0 +1,38 @@
+/* Tailwind CSS 불러오기 */
+@import "tailwindcss";
+
+/* 웹 폰트 설정 */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920; /* 가변 폰트(Variable)의 굵기 범위 */
+  font-style: normal;
+  font-display: swap; /* 폰트 로딩 시 깜빡임(FOUT) 최적화 */
+  /* global.css 위치(src/assets/) 기준 폰트 파일 경로 */
+  src: url('./fonts/PretendardVariable.woff2') format('woff2');
+}
+
+/* 기본 스타일 및 폰트 일괄 적용 */
+@layer base {
+  html, body {
+    /* 프로젝트 전체의 기본 폰트를 Pretendard로 강제 지정 */
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+    
+    /* EMR 대시보드에 어울리는 기본 배경색/글자색 (Tailwind 클래스 적용) */
+    @apply bg-gray-100 text-gray-800 antialiased;
+  }
+
+/* 커스텀 스크롤바 디자인 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
