@@ -14,7 +14,7 @@ export default function DoctorRegister() {
     name: '',         // 이름
     birthDate: '',    // 생년월일
     phone: '',        // 전화번호
-    gender: 'male',   // 성별 (기본값 남성)
+    gender: 'male',   // 성별
   });
 
   const handleChange = (e) => {
