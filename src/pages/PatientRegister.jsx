@@ -9,11 +9,12 @@ export default function PatientRegister() {
   const [formData, setFormData] = useState({
     email: '',           // 이메일
     password: '',        // 비밀번호
-    confirmPassword: '',    // 비밀번호 확인
+    confirmPassword: '', // 비밀번호 확인
     name: '',            // 이름
     birthDate: '',       // 생년월일
     phone: '',           // 전화번호
-    gender: 'male'       // 성별 (기본값 남성)
+    gender: 'male',      // 성별 
+    doctorName: ''       // 담당의사 이름
   });
 
   const handleChange = (e) => {
@@ -75,6 +76,15 @@ export default function PatientRegister() {
             label="전화번호" 
             name="phone" 
             placeholder="010-0000-0000" 
+            onChange={handleChange} 
+            required 
+          />
+
+          {/* 담당의사 성함 입력 칸 추가 */}
+          <Input 
+            label="담당의사 성함" 
+            name="doctorName" 
+            placeholder="담당 선생님 성함을 입력하세요" 
             onChange={handleChange} 
             required 
           />
