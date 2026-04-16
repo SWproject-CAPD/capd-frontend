@@ -12,7 +12,7 @@ export default function DoctorRegister() {
     password: '',     // 비밀번호
     confirmPassword: '', // 비밀번호 확인
     name: '',         // 이름
-    birthDate: '',    // 생년월일
+    age: '',          // 나이
     phone: '',        // 전화번호
     gender: 'male',   // 성별
   });
@@ -60,9 +60,9 @@ export default function DoctorRegister() {
 
           <div className="grid grid-cols-2 gap-4">
             <Input 
-              label="생년월일" 
-              name="birthDate" 
-              type="date" 
+              label="나이" 
+              name="age" 
+              placeholder="숫자만 입력"
               onChange={handleChange} 
               required 
             />

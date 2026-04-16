@@ -8,15 +8,19 @@ import DoctorRegister from './pages/DoctorRegister'; // 파일명 오타(Doctore
 import PatientRegister from './pages/PatientRegister';
 
 // 레이아웃 컴포넌트
-import PatientLayout from './components/PatientLayout';
-import DoctorLayout from './components/DoctorLayout';
+import PatientLayout from './layouts/PatientLayout';
+import DoctorLayout from './layouts/DoctorLayout';
 
 /** * 실제 페이지 파일이 없을 경우 에러가 나므로, 
  * 임시 컴포넌트를 만들어 에러를 방지합니다. 
  * 나중에 실제 파일을 만드시면 이 부분을 지우고 상단에서 import 하세요.
  */
-const PatientDashboard = () => <div className="p-8 text-2xl font-bold">환자 대시보드 </div>;
-const PatientChat = () => <div className="p-8 text-2xl font-bold">환자 AI 문진 </div>;
+import PatientDashboard from './pages/patient/PatientHome';
+const PatientRecord = () => <div className="p-8 text-2xl font-bold">투석 기록 </div>;
+const PatientRecordList = () => <div className="p-8 text-2xl font-bold">기록 확인 </div>;
+const PatientSurvey = () => <div className="p-8 text-2xl font-bold">환자 설문 </div>;
+const PatientChat = () => <div className="p-8 text-2xl font-bold">AI 상담 </div>;
+const PatientSchedule = () => <div className="p-8 text-2xl font-bold">일정 확인 </div>;
 const DoctorDashboard = () => <div className="p-8 text-2xl font-bold">의사 EMR 대시보드 </div>;
 
 function App() {
@@ -37,7 +41,11 @@ function App() {
         {/* === 환자 전용 경로 (PatientLayout 적용) === */}
         <Route path="/patient" element={<PatientLayout />}>
           <Route index element={<PatientDashboard />} />
-          <Route path="survey" element={<PatientChat />} />
+          <Route path="record" element={<PatientRecord />} />
+          <Route path="record_list" element={<PatientRecordList />} />
+          <Route path="survey" element={<PatientSurvey />} />
+          <Route path="chat" element={<PatientChat />} />
+          <Route path="schedule" element={<PatientSchedule />} />
         </Route>
 
         {/* === 의사 전용 경로 (DoctorLayout 적용) === */}
