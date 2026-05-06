@@ -6,10 +6,10 @@ import BackToPatientButton from '../../components/BackToPatientButton';
 export default function PatientInfoPage() {
   const { id } = useParams();
 
-  // 1. 환자 데이터 매칭
+  // 환자 데이터 매칭
   const patient = patientsData.find(p => p.id === id) || patientsData[0];
 
-  // 2. Mock 데이터에 없는 정보들 하드코딩 및 계산
+  // Mock 데이터에 없는 정보들 하드코딩 및 계산
   const hardcodedData = {
     email: 'patient.capd@example.com',
     phone: '010-1234-5678',
@@ -34,7 +34,7 @@ export default function PatientInfoPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* --- 1. 기본 인적 사항 카드 (좌측 1열) --- */}
+        {/* 기본 인적 사항 카드 (좌측 1열) */}
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           {/* 프로필 헤더 */}
           <div className="bg-slate-800 p-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -67,10 +67,10 @@ export default function PatientInfoPage() {
           </div>
         </div>
 
-        {/* --- 우측 2열 (신체 정보 & 임상 정보) --- */}
+        {/* 우측 2열 (신체 정보 & 임상 정보) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* 2. 신체 측정 및 기초 정보 카드 */}
+          {/* 신체 측정 및 기초 정보 카드 */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2 border-b border-gray-100 pb-3">
               <span className="text-emerald-500">⚖️</span> 신체 측정 및 기초 정보
@@ -96,7 +96,7 @@ export default function PatientInfoPage() {
             </div>
           </div>
 
-          {/* 3. 투석 처방 및 임상 정보 카드 */}
+          {/* 투석 처방 및 임상 정보 카드 */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2 border-b border-gray-100 pb-3">
               <span className="text-blue-500">🩺</span> 투석 처방 및 임상 기록
