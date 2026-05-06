@@ -73,7 +73,7 @@ export default function SymptomHelperPage() {
               {/* 아바타 */}
               <div className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center text-sm font-bold shadow-sm ${
                 msg.sender === 'user' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-purple-500 text-white' 
                   : 'bg-[#edeaf0] text-[#766c8a]'
               }`}>
                 {msg.sender === 'user' ? '나' : '봇'}
@@ -82,7 +82,7 @@ export default function SymptomHelperPage() {
               {/* 말풍선 */}
               <div className={`max-w-[75%] px-5 py-3.5 rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm ${
                 msg.sender === 'user'
-                  ? 'bg-blue-600 text-white rounded-br-none' 
+                  ? 'bg-purple-500 text-white rounded-br-none' 
                   : 'bg-white border border-gray-100 text-gray-800 rounded-bl-none'
               }`}>
                 {msg.text}

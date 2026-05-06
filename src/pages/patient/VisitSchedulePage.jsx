@@ -1,190 +1,241 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const MOCK_CURRENT_PATIENT_ID = 'P010';
+
+const mockDoctorAssignments = {
+  P001: '김의사',
+  P002: '김의사',
+  P003: '김의사',
+  P004: '김의사',
+  P005: '김의사',
+  P006: '김의사',
+  P007: '김의사',
+};
 
 export default function VisitSchedulePage() {
-  // 상태 관리: 현재 달력에서 보고 있는 연도/월, 선택된 날짜
+  const navigate = useNavigate();
+
   const today = new Date();
+  const assignedDoctorName = mockDoctorAssignments[MOCK_CURRENT_PATIENT_ID];
+  const hasAssignedDoctor = Boolean(assignedDoctorName);
+  const [previewEnabled, setPreviewEnabled] = useState(false);
+  const canUseSchedule = hasAssignedDoctor || previewEnabled;
+
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
 
-  // 가상의 예약 데이터 (추후 백엔드 API에서 가져올 데이터)
+  const displayDoctorName = assignedDoctorName || '임시 담당의';
+
   const mockSchedules = [
-    {
-      id: 1,
-      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3),
-      time: '14:30',
-      department: '신장내과',
-      doctor: '김의사',
-      type: '정기 검진',
-      status: 'upcoming' // upcoming, completed 등
-    },
-    {
-      id: 2,
-      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14),
-      time: '10:00',
-      department: '투석실',
-      doctor: '이간호',
-      type: '투석관 점검 및 소독',
-      status: 'upcoming'
-    },
-    {
-      id: 3,
-      date: new Date(today.getFullYear(), today.getMonth() + 1, 5),
-      time: '15:00',
-      department: '신장내과',
-      doctor: '김의사',
-      type: '혈액 검사 결과 상담',
-      status: 'upcoming'
-    }
+    { id: 1, date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3), time: '14:30', department: '신장내과', doctor: displayDoctorName, type: '정기 검진' },
+    { id: 2, date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14), time: '10:00', department: '투석실', doctor: '이간호', type: '투석관 점검 및 소독' },
+    { id: 3, date: new Date(today.getFullYear(), today.getMonth() + 1, 5), time: '15:00', department: '신장내과', doctor: displayDoctorName, type: '혈액 검사 결과 상담' },
   ];
 
-  // 달력 계산을 위한 변수들
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
-  // 달 이동 핸들러
-  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-
-  // 현재 월에 해당하는 일정만 필터링 (하단 리스트용)
   const currentMonthSchedules = mockSchedules
-    .filter(sch => sch.date.getFullYear() === year && sch.date.getMonth() === month)
-    .sort((a, b) => a.date - b.date); // 날짜순 정렬
+    .filter(schedule => schedule.date.getFullYear() === year && schedule.date.getMonth() === month)
+    .sort((a, b) => a.date - b.date);
 
-  // 특정 날짜에 일정이 있는지 확인하는 함수
-  const getSchedulesForDay = (day) => {
-    return mockSchedules.filter(sch => 
-      sch.date.getFullYear() === year && 
-      sch.date.getMonth() === month && 
-      sch.date.getDate() === day
+  const selectedDaySchedules = mockSchedules.filter(schedule =>
+    schedule.date.getFullYear() === selectedDate.getFullYear() &&
+    schedule.date.getMonth() === selectedDate.getMonth() &&
+    schedule.date.getDate() === selectedDate.getDate()
+  );
+
+  const getSchedulesForDay = (day) => mockSchedules.filter(schedule =>
+    schedule.date.getFullYear() === year &&
+    schedule.date.getMonth() === month &&
+    schedule.date.getDate() === day
+  );
+
+  if (!canUseSchedule) {
+    return (
+      <div className="mx-auto max-w-3xl pb-24 animate-in fade-in duration-500">
+        <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-black text-slate-500">
+            !
+          </div>
+          <h1 className="text-2xl font-black text-slate-900">담당의 배정 후 일정을 확인할 수 있습니다</h1>
+          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-500">
+            방문 예약과 진료 일정은 담당 의료진이 배정된 뒤 제공됩니다.<br />
+            담당의가 배정되면 다음 방문 일정을 확인할 수 있습니다.
+          </p>
+
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/patient')}
+              className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white hover:bg-blue-700"
+            >
+              홈으로 돌아가기
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewEnabled(true)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-500 hover:bg-slate-50"
+            >
+              임시로 화면 보기
+            </button>
+          </div>
+        </section>
+      </div>
     );
-  };
+  }
 
   return (
-    <div className="max-w-3xl mx-auto pb-12 animate-in fade-in duration-500">
-      
-      {/* 상단 타이틀 영역 */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-gray-900">예약 및 진료 일정</h1>
-        <p className="text-gray-500 mt-2 font-medium">다음 병원 방문 일정과 정기 검진 예약 현황을 확인하세요.</p>
-      </div>
+    <div className="mx-auto max-w-5xl pb-8 animate-in fade-in duration-500">
+      <section className="mb-5 rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 md:text-3xl">예약 및 진료 일정</h1>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              다음 병원 방문 일정과 정기 검진 예약 현황을 확인하세요.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-orange-50 px-4 py-3">
+            <div className="text-[11px] font-black text-orange-600">담당의</div>
+            <div className="mt-1 text-sm font-black text-orange-800">{displayDoctorName} 선생님</div>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        
-        {/* 좌측/상단: 캘린더 위젯 */}
-        <div className="md:col-span-7 bg-white p-6 md:p-8 rounded-4xl shadow-sm border border-gray-200">
-          
-          {/* 캘린더 헤더 */}
-          <div className="flex justify-between items-center mb-6">
-            <button 
-              onClick={handlePrevMonth}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-gray-500 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-7">
+          <div className="mb-5 flex items-center justify-between">
+            <button
+              onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 text-xl font-black text-slate-500 hover:bg-orange-50 hover:text-orange-600"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+              ‹
             </button>
-            <h2 className="text-xl font-black text-gray-800">
-              {year}년 {month + 1}월
-            </h2>
-            <button 
-              onClick={handleNextMonth}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-gray-500 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+            <h2 className="text-xl font-black text-slate-900">{year}년 {month + 1}월</h2>
+            <button
+              onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 text-xl font-black text-slate-500 hover:bg-orange-50 hover:text-orange-600"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+              ›
             </button>
           </div>
 
-          {/* 캘린더 요일 */}
-          <div className="grid grid-cols-7 gap-2 text-center mb-2">
-            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-              <div key={d} className={`text-xs font-bold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
-                {d}
+          <div className="grid grid-cols-7 gap-2 text-center">
+            {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
+              <div key={day} className={`mb-2 text-xs font-black ${index === 0 ? 'text-red-400' : index === 6 ? 'text-blue-400' : 'text-slate-400'}`}>
+                {day}
               </div>
             ))}
-          </div>
 
-          {/* 캘린더 날짜 그리드 */}
-          <div className="grid grid-cols-7 gap-2 text-center">
-            {/* 빈 칸 (이전 달) */}
-            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-square"></div>
+            {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+              <div key={`empty-${index}`} className="aspect-square" />
             ))}
-            
-            {/* 날짜 */}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
+
+            {Array.from({ length: daysInMonth }).map((_, index) => {
+              const day = index + 1;
               const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
               const isSelected = selectedDate.getFullYear() === year && selectedDate.getMonth() === month && selectedDate.getDate() === day;
-              const daySchedules = getSchedulesForDay(day);
-              const hasSchedule = daySchedules.length > 0;
+              const hasSchedule = getSchedulesForDay(day).length > 0;
 
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(new Date(year, month, day))}
-                  className={`aspect-square flex flex-col items-center justify-center rounded-2xl relative transition-all ${
-                    isSelected 
-                      ? 'bg-orange-500 text-white shadow-md font-bold transform scale-105' 
-                      : isToday 
-                        ? 'bg-gray-100 text-gray-900 font-bold hover:bg-gray-200' 
-                        : 'text-gray-700 hover:bg-orange-50 font-medium'
+                  className={`relative aspect-square rounded-2xl text-sm font-black transition-all ${
+                    isSelected
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : isToday
+                        ? 'bg-slate-100 text-slate-900 hover:bg-orange-50'
+                        : 'text-slate-600 hover:bg-orange-50'
                   }`}
                 >
-                  <span className="text-sm">{day}</span>
-                  {/* 일정이 있는 날 점 표시 */}
+                  {day}
                   {hasSchedule && (
-                    <div className={`w-1.5 h-1.5 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-orange-500'}`}></div>
+                    <span className={`absolute bottom-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${isSelected ? 'bg-white' : 'bg-orange-500'}`} />
                   )}
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* 우측/하단: 선택한 월의 일정 리스트 */}
-        <div className="md:col-span-5 flex flex-col gap-4">
-          <div className="bg-white p-6 rounded-4xl shadow-sm border border-gray-200 flex-1">
-            <h3 className="text-lg font-bold text-gray-800 mb-5 flex justify-between items-center pb-4 border-b border-gray-100">
-              <span>{month + 1}월 일정 목록</span>
-              <span className="bg-orange-100 text-orange-600 text-xs px-2.5 py-1 rounded-full">{currentMonthSchedules.length}건</span>
-            </h3>
+        <aside className="space-y-5 lg:col-span-5">
+          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900">선택한 날짜</h2>
+              <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-600">
+                {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일
+              </span>
+            </div>
 
-            {currentMonthSchedules.length > 0 ? (
-              <div className="space-y-4">
-                {currentMonthSchedules.map((sch) => (
-                  <div 
-                    key={sch.id} 
-                    className="flex gap-4 p-4 rounded-2xl border border-gray-100 bg-slate-50/50 hover:bg-orange-50/50 hover:border-orange-200 transition-colors group cursor-pointer"
-                  >
-                    {/* 날짜 박스 */}
-                    <div className="flex flex-col items-center justify-center bg-white border border-gray-200 rounded-xl w-14 h-14 shrink-0 shadow-sm group-hover:border-orange-300 group-hover:text-orange-600 transition-colors">
-                      <span className="text-[10px] font-bold text-gray-400 group-hover:text-orange-400">{sch.date.getMonth() + 1}월</span>
-                      <span className="text-lg font-black text-gray-800 group-hover:text-orange-600">{sch.date.getDate()}</span>
-                    </div>
-
-                    {/* 상세 정보 */}
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="text-sm font-black text-gray-900">{sch.type}</span>
-                        <span className="text-[11px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-md">{sch.time}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 font-medium">
-                        {sch.department} • {sch.doctor} 선생님
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {selectedDaySchedules.length > 0 ? (
+              <div className="space-y-3">
+                {selectedDaySchedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule} />)}
               </div>
             ) : (
-              <div className="h-40 flex flex-col items-center justify-center text-center">
-                <div className="text-4xl mb-3 opacity-50">📭</div>
-                <p className="text-gray-400 font-medium text-sm">이번 달에 예정된 진료가 없습니다.</p>
-              </div>
+              <EmptySchedule text="선택한 날짜에 예정된 진료가 없습니다." />
             )}
-          </div>
-        </div>
+          </section>
 
+          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900">{month + 1}월 일정</h2>
+              <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-600">
+                {currentMonthSchedules.length}건
+              </span>
+            </div>
+
+            {currentMonthSchedules.length > 0 ? (
+              <div className="space-y-3">
+                {currentMonthSchedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule} compact />)}
+              </div>
+            ) : (
+              <EmptySchedule text="이번 달에 예정된 진료가 없습니다." />
+            )}
+          </section>
+        </aside>
       </div>
+    </div>
+  );
+}
+
+function ScheduleCard({ schedule, compact = false }) {
+  return (
+    <div className="flex gap-3 rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
+      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-orange-100 bg-white shadow-sm">
+        <span className="text-[10px] font-black text-orange-500">{schedule.date.getMonth() + 1}월</span>
+        <span className="text-lg font-black text-slate-900">{schedule.date.getDate()}</span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-black text-slate-900">{schedule.type}</h3>
+          <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-black text-orange-700">
+            {schedule.time}
+          </span>
+        </div>
+        {!compact && (
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            {schedule.department} · {schedule.doctor} 선생님
+          </p>
+        )}
+        {compact && (
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            {schedule.department}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptySchedule({ text }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-bold text-slate-400">
+      {text}
     </div>
   );
 }

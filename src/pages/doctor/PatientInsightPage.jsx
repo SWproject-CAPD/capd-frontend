@@ -16,11 +16,11 @@ export default function PatientInsightPage() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // 1. 환자 데이터 매칭
+  // 환자 데이터 매칭
   const patient = patientsData.find(p => p.id === id) || patientsData[0];
   const history = patient.history;
 
-  // 2. 상단 요약 데이터 추출
+  // 상단 요약 데이터 추출
   const currentWeight = history[0].weight;
   const lastWeekWeight = history[7].weight;
   const weightDiff = (currentWeight - lastWeekWeight).toFixed(1);
@@ -57,7 +57,7 @@ export default function PatientInsightPage() {
       {/* 상단: 4열 구조 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4 shrink-0">
         
-        {/* 1. 환자 기본 정보 */}
+        {/* 환자 기본 정보 */}
         <div className="bg-slate-800 text-white p-4 rounded-2xl shadow-sm flex flex-col justify-between relative overflow-hidden">
           <button 
             onClick={() => navigate(`/doctor/${id}/info`)} 
@@ -83,7 +83,7 @@ export default function PatientInsightPage() {
           </div>
         </div>
 
-        {/* 2. 체중 요약 */}
+        {/* 체중 요약 */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group">
           <div>
             <div className="text-xs font-bold text-gray-500 mb-1">최근 체중 (kg)</div>
@@ -100,7 +100,7 @@ export default function PatientInsightPage() {
           </div>
         </div>
 
-        {/* 3. 혈압 요약 */}
+        {/* 혈압 요약 */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group">
           <div>
             <div className="text-xs font-bold text-gray-500 mb-1">최근 혈압 (mmHg)</div>
@@ -111,7 +111,7 @@ export default function PatientInsightPage() {
           </div>
         </div>
 
-        {/* 4. 평균 제수량 요약 */}
+        {/* 평균 제수량 요약 */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group">
           <div>
             <div className="text-xs font-bold text-gray-500 mb-1">최근 제수량 (mL)</div>
@@ -127,7 +127,7 @@ export default function PatientInsightPage() {
       {/* 중단: 2열 구조 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 flex-[1.2] min-h-0">
         
-        {/* 5. Recharts 혼합 그래프 (막대 + 선) */}
+        {/* Recharts 혼합 그래프 (막대 + 선) */}
         <div className="lg:col-span-2 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col min-h-0">
           <button 
             onClick={() => navigate(`/doctor/${id}/charts`)} 
@@ -179,7 +179,7 @@ export default function PatientInsightPage() {
                     <YAxis yAxisId="uf" domain={[500, 2500]} hide />
                     <YAxis yAxisId="bp" domain={[80, 180]} hide />
 
-                    {/* 1. 체중 막대 그래프 */}
+                    {/* 체중 막대 그래프 */}
                     <Bar yAxisId="weight" dataKey="weight" name="체중 (kg)" barSize={40} radius={[6, 6, 6, 6]}>
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill="#e9d5ff" className="hover:fill-[#d8b4fe] transition-colors cursor-pointer" />
@@ -194,7 +194,7 @@ export default function PatientInsightPage() {
                       />
                     </Bar>
 
-                    {/* 2. 제수량 선 그래프 */}
+                    {/* 제수량 선 그래프 */}
                     <Line 
                       yAxisId="uf" 
                       type="monotone" 
@@ -216,7 +216,7 @@ export default function PatientInsightPage() {
                       />
                     </Line>
 
-                    {/* 3. 혈압 선 그래프 */}
+                    {/* 혈압 선 그래프 */}
                     <Line 
                       yAxisId="bp" 
                       type="monotone" 
@@ -245,7 +245,7 @@ export default function PatientInsightPage() {
           </div>
         </div>
 
-        {/* 6. AI 건강 상태 알림 */}
+        {/* AI 건강 상태 알림 */}
         <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col min-h-0">
           <button 
             onClick={() => navigate(`/doctor/${id}/ai_report`)} 
@@ -299,7 +299,7 @@ export default function PatientInsightPage() {
       {/* 하단: 기록 표, 설문 관리 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
         
-        {/* 7. 기록 표 */}
+        {/* 기록 표 */}
         <div className="lg:col-span-2 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col min-h-0">
           <button 
             onClick={() => navigate(`/doctor/${id}/logs`)} 
@@ -336,7 +336,7 @@ export default function PatientInsightPage() {
           </div>
         </div>
 
-        {/* 8. 환자 설문 승인 관리 */}
+        {/* 환자 설문 승인 관리 */}
         <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col justify-between min-h-0">
           <button 
             onClick={() => navigate(`/doctor/${id}/questions`)} 
