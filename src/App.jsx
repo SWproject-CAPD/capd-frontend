@@ -23,12 +23,14 @@ import PatientInfoPage from './pages/doctor/PatientInfoPage';
 import RecordLogsPage from './pages/doctor/RecordLogsPage';
 import AiReportPage from './pages/doctor/AiReportPage';
 import QuestionManagePage from './pages/doctor/QuestionManagePage';
+import QuestionCheckPage from './pages/doctor/QuestionCheckPage';
 import PatientChartsPage from './pages/doctor/PatientChartsPage';
 import AppointmentCreatePage from './pages/doctor/AppointmentCreatePage';
+import AppointmentCheckPage from './pages/doctor/AppointmentCheckPage';
 
 
 function App() {
-  // 현재 로그인한 사용자의 정보를 가져옵니다. (ESLint 경고 방지를 위해 주석 처리하거나 사용하세요)
+  // 현재 로그인한 사용자의 정보를 가져옵니다.
   // const { user } = useAppStore();
 
   return (
@@ -61,8 +63,10 @@ function App() {
           <Route path=":id/charts" element={<PatientChartsPage />} />
           <Route path=":id/ai_report" element={<AiReportPage />} />
           <Route path=":id/logs" element={<RecordLogsPage />} />
-          <Route path=":id/questions" element={<QuestionManagePage />} />
+          <Route path=":id/questions_manage" element={<QuestionManagePage />} />
+          <Route path=":id/questions_list" element={<QuestionCheckPage />} />
           <Route path="appointments/new" element={<AppointmentCreatePage />} />
+          <Route path="appointments/check" element={<AppointmentCheckPage />} />
         </Route>
 
         {/* 리다이렉트 설정 */}

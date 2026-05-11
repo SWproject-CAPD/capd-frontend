@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Outlet, useNavigate, Link, useParams } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
 import { patientsData } from '../api/mockPatients';
@@ -208,13 +208,23 @@ export default function DoctorLayout() {
           </div>
 
           <div className="p-4 border-b bg-white">
-            <button
-              type="button"
-              onClick={() => navigate('/doctor/appointments/new')}
-              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.99]"
-            >
-              + 환자 예약 등록
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/doctor/appointments/new')}
+                className="rounded-xl bg-blue-600 px-3 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.99]"
+              >
+                + 예약 등록
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/doctor/appointments/check')}
+                className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-black text-blue-700 shadow-sm transition-all hover:bg-blue-100 active:scale-[0.99]"
+              >
+                예약 목록
+              </button>
+            </div>
           </div>
           
           <div className="flex-1 flex flex-col overflow-hidden">

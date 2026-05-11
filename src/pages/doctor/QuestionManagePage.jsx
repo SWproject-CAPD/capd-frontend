@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { patientsData } from '../../api/mockPatients';
 import BackToPatientButton from '../../components/BackToPatientButton';
@@ -91,18 +91,18 @@ export default function QuestionManagePage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="flex items-center gap-3 text-2xl font-black text-gray-900">
-              <span className="rounded-xl bg-indigo-100 p-2 text-xl text-indigo-600">📋</span>
+              <span className="rounded-xl bg-blue-100 p-2 text-xl text-blue-600">📋</span>
               AI 설문 승인 및 관리
             </h1>
             <p className="mt-2 text-sm font-medium text-gray-500">
-              <span className="font-bold text-indigo-600">{patient.name}</span> 환자의 상태를 분석하여 AI가 추천한 질문들입니다.
+              <span className="font-bold text-blue-600">{patient.name}</span> 환자의 상태를 분석하여 AI가 추천한 질문들입니다.
             </p>
           </div>
 
           {/* TODO: 추후 온프레미스 AI 질문 생성 API 호출로 교체 필요 */}
           <button
             onClick={handleGenerateQuestion}
-            className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 md:w-auto"
+            className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95 md:w-auto"
           >
             질문 생성하기
           </button>
@@ -128,9 +128,9 @@ export default function QuestionManagePage() {
           <Card className="border-none p-5 shadow-sm shrink-0">
             <h3 className="mb-4 text-sm font-black text-gray-800">설문 처리 현황</h3>
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between rounded-xl bg-indigo-50 px-4 py-3">
-                <span className="text-xs font-bold text-indigo-800">승인 대기</span>
-                <span className="text-lg font-black text-indigo-600">{counts.pending}건</span>
+              <div className="flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3">
+                <span className="text-xs font-bold text-blue-800">승인 대기</span>
+                <span className="text-lg font-black text-blue-600">{counts.pending}건</span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3">
                 <span className="text-xs font-bold text-emerald-800">승인 완료</span>
@@ -152,7 +152,7 @@ export default function QuestionManagePage() {
                 <button
                   onClick={() => setActiveTab('pending')}
                   className={`border-b-2 pb-3 text-sm font-bold transition-colors ${
-                    activeTab === 'pending' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                    activeTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   승인 대기 ({counts.pending})
@@ -215,11 +215,11 @@ export default function QuestionManagePage() {
                         )}
                       </div>
 
-                      <div className="mb-5 rounded-xl border-l-4 border-indigo-500 bg-indigo-50 p-4">
-                        <h4 className="mb-1 flex items-center gap-1.5 text-xs font-black text-indigo-800">
+                      <div className="mb-5 rounded-xl border-l-4 border-blue-500 bg-blue-50 p-4">
+                        <h4 className="mb-1 flex items-center gap-1.5 text-xs font-black text-blue-800">
                           <span className="text-sm">🤖</span> AI 추천 이유
                         </h4>
-                        <p className="text-sm font-medium text-indigo-900/80 leading-relaxed">
+                        <p className="text-sm font-medium text-blue-900/80 leading-relaxed">
                           {q.reason}
                         </p>
                       </div>
@@ -234,7 +234,7 @@ export default function QuestionManagePage() {
                           </button>
                           <button
                             onClick={() => handleUpdateStatus(q.id, 'approved')}
-                            className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-black text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95"
+                            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
                           >
                             승인하기
                           </button>

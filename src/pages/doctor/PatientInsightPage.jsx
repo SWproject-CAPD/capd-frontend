@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { patientsData } from '../../api/mockPatients';
 import Sparkline from '../../components/Sparkline';
@@ -338,27 +338,29 @@ export default function PatientInsightPage() {
 
         {/* 환자 설문 승인 관리 */}
         <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col justify-between min-h-0">
-          <button 
-            onClick={() => navigate(`/doctor/${id}/questions`)} 
-            className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 p-1.5 bg-slate-50 rounded-lg transition-colors z-20"
-            title="설문 관리 바로가기"
-          >
-            <ShortcutIcon />
-          </button>
           <div className="shrink-0 mb-2">
             <h3 className="text-base font-bold text-gray-800 mb-1">설문 승인 및 현황</h3>
-            <p className="text-[11px] text-gray-500 line-clamp-2">AI 맞춤형 질문 현황입니다.</p>
+            <p className="text-[11px] text-gray-500 line-clamp-2">AI 맞춤형 질문과 환자 응답 현황입니다.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-            <div className="bg-rose-50 border border-rose-100 p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-rose-100 transition-colors h-full">
+            <button
+              type="button"
+              onClick={() => navigate(`/doctor/${id}/questions_manage`)}
+              className="bg-rose-50 border border-rose-100 p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-rose-100 transition-colors h-full text-center"
+            >
               <div className="text-2xl font-black text-rose-600 mb-1">{Math.floor(Math.random() * 5) + 1}</div>
               <div className="text-[10px] font-bold text-rose-800">승인 대기 질문</div>
-            </div>
-            <div className="bg-blue-50 border border-blue-100 p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors h-full">
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/doctor/${id}/questions_list`)}
+              className="bg-blue-50 border border-blue-100 p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors h-full text-center"
+            >
               <div className="text-2xl font-black text-blue-600 mb-1">{Math.floor(Math.random() * 20) + 5}</div>
               <div className="text-[10px] font-bold text-blue-800">응답 완료 설문</div>
-            </div>
+            </button>
           </div>
         </div>
 
