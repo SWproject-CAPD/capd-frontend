@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import useAppStore from './store/useAppStore';
 
 // 공통 및 인증 페이지
 import LoginPage from './pages/LoginPage';
@@ -16,6 +17,7 @@ import PatientRecordList from './pages/patient/RecordListPage';
 import PatientSurvey from './pages/patient/HealthSurveyPage';
 import PatientChat from './pages/patient/SymptomHelperPage';
 import PatientSchedule from './pages/patient/VisitSchedulePage';
+import PatientMyPage from './pages/patient/PatientMyPage';
 
 import DoctorDashboard from './pages/doctor/DoctorHome';
 import PatientInsightPage from './pages/doctor/PatientInsightPage';
@@ -27,12 +29,10 @@ import QuestionCheckPage from './pages/doctor/QuestionCheckPage';
 import PatientChartsPage from './pages/doctor/PatientChartsPage';
 import AppointmentCreatePage from './pages/doctor/AppointmentCreatePage';
 import AppointmentCheckPage from './pages/doctor/AppointmentCheckPage';
+import DoctorMyPage from './pages/doctor/DoctorMyPage';
 
 
 function App() {
-  // 현재 로그인한 사용자의 정보를 가져옵니다.
-  // const { user } = useAppStore();
-
   return (
     <Router>
       <Routes>
@@ -45,17 +45,18 @@ function App() {
         <Route path="/register/patient" element={<PatientRegister />} />
 
         {/* 환자 전용 경로 (PatientLayout 적용) */}
-        <Route path="/patient" element={<PatientLayout />}>
+        <Route path="/patient" element={<RequireRole role="patient"><PatientLayout /></RequireRole>}>
           <Route index element={<PatientDashboard />} />
           <Route path="record" element={<PatientRecord />} />
           <Route path="record_list" element={<PatientRecordList />} />
           <Route path="survey" element={<PatientSurvey />} />
           <Route path="chat" element={<PatientChat />} />
           <Route path="schedule" element={<PatientSchedule />} />
+          <Route path="mypage" element={<PatientMyPage />} />
         </Route>
 
         {/* 의사 전용 경로 (DoctorLayout 적용) */}
-        <Route path="/doctor" element={<DoctorLayout />}>
+        <Route path="/doctor" element={<RequireRole role="doctor"><DoctorLayout /></RequireRole>}>
           <Route index element={<DoctorDashboard />} />
           {/* 특정 환자 선택 시의 경로 */}
           <Route path=":id" element={<PatientInsightPage />} />
@@ -67,6 +68,7 @@ function App() {
           <Route path=":id/questions_list" element={<QuestionCheckPage />} />
           <Route path="appointments/new" element={<AppointmentCreatePage />} />
           <Route path="appointments/check" element={<AppointmentCheckPage />} />
+          <Route path="mypage" element={<DoctorMyPage />} />
         </Route>
 
         {/* 리다이렉트 설정 */}
@@ -78,6 +80,20 @@ function App() {
       </Routes>
     </Router>
   );
+}
+
+function RequireRole({ role, children }) {
+  const { user, isAuthenticated } = useAppStore();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== role) {
+    return <Navigate to={user.role === 'doctor' ? '/doctor' : '/patient'} replace />;
+  }
+
+  return children;
 }
 
 export default App;

@@ -1,92 +1,35 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-const MOCK_CURRENT_PATIENT_ID = 'P010';
-
-const mockDoctorAssignments = {
-  P001: '김의사',
-  P002: '김의사',
-  P003: '김의사',
-  P004: '김의사',
-  P005: '김의사',
-  P006: '김의사',
-  P007: '김의사',
-};
+import { getUpcomingReservation, usePatientReservations } from '../../hooks/usePatientData';
 
 export default function VisitSchedulePage() {
-  const navigate = useNavigate();
-
   const today = new Date();
-  const assignedDoctorName = mockDoctorAssignments[MOCK_CURRENT_PATIENT_ID];
-  const hasAssignedDoctor = Boolean(assignedDoctorName);
-  const [previewEnabled, setPreviewEnabled] = useState(false);
-  const canUseSchedule = hasAssignedDoctor || previewEnabled;
+  const { data: schedules = [], isLoading } = usePatientReservations();
+  const nextSchedule = getUpcomingReservation(schedules);
 
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
-
-  const displayDoctorName = assignedDoctorName || '임시 담당의';
-
-  const mockSchedules = [
-    { id: 1, date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3), time: '14:30', department: '신장내과', doctor: displayDoctorName, type: '정기 검진' },
-    { id: 2, date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14), time: '10:00', department: '투석실', doctor: '이간호', type: '투석관 점검 및 소독' },
-    { id: 3, date: new Date(today.getFullYear(), today.getMonth() + 1, 5), time: '15:00', department: '신장내과', doctor: displayDoctorName, type: '혈액 검사 결과 상담' },
-  ];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
-  const currentMonthSchedules = mockSchedules
-    .filter(schedule => schedule.date.getFullYear() === year && schedule.date.getMonth() === month)
-    .sort((a, b) => a.date - b.date);
+  const currentMonthSchedules = schedules
+    .filter(schedule => {
+      const scheduleDate = new Date(schedule.reservationDate);
+      return scheduleDate.getFullYear() === year && scheduleDate.getMonth() === month;
+    })
+    .sort((a, b) => String(a.reservationDate).localeCompare(String(b.reservationDate)));
 
-  const selectedDaySchedules = mockSchedules.filter(schedule =>
-    schedule.date.getFullYear() === selectedDate.getFullYear() &&
-    schedule.date.getMonth() === selectedDate.getMonth() &&
-    schedule.date.getDate() === selectedDate.getDate()
+  const selectedDaySchedules = schedules.filter(schedule =>
+    schedule.date === `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` &&
+    selectedDate.getMonth() === month &&
+    selectedDate.getFullYear() === year
   );
 
-  const getSchedulesForDay = (day) => mockSchedules.filter(schedule =>
-    schedule.date.getFullYear() === year &&
-    schedule.date.getMonth() === month &&
-    schedule.date.getDate() === day
+  const getSchedulesForDay = (day) => schedules.filter(schedule =>
+    schedule.date === `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   );
-
-  if (!canUseSchedule) {
-    return (
-      <div className="mx-auto max-w-3xl pb-24 animate-in fade-in duration-500">
-        <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-black text-slate-500">
-            !
-          </div>
-          <h1 className="text-2xl font-black text-slate-900">담당의 배정 후 일정을 확인할 수 있습니다</h1>
-          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-500">
-            방문 예약과 진료 일정은 담당 의료진이 배정된 뒤 제공됩니다.<br />
-            담당의가 배정되면 다음 방문 일정을 확인할 수 있습니다.
-          </p>
-
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/patient')}
-              className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white hover:bg-blue-700"
-            >
-              홈으로 돌아가기
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewEnabled(true)}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-500 hover:bg-slate-50"
-            >
-              임시로 화면 보기
-            </button>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-5xl pb-8 animate-in fade-in duration-500">
@@ -95,12 +38,14 @@ export default function VisitSchedulePage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900 md:text-3xl">예약 및 진료 일정</h1>
             <p className="mt-2 text-sm font-medium text-slate-500">
-              다음 병원 방문 일정과 정기 검진 예약 현황을 확인하세요.
+              {isLoading ? '예약 일정을 불러오는 중입니다.' : '다음 병원 방문 일정과 정기 검진 예약 현황을 확인하세요.'}
             </p>
           </div>
           <div className="rounded-2xl bg-orange-50 px-4 py-3">
-            <div className="text-[11px] font-black text-orange-600">담당의</div>
-            <div className="mt-1 text-sm font-black text-orange-800">{displayDoctorName} 선생님</div>
+            <div className="text-[11px] font-black text-orange-600">다음 예약</div>
+            <div className="mt-1 text-sm font-black text-orange-800">
+              {nextSchedule ? `${nextSchedule.date} ${nextSchedule.time}` : '예정 없음'}
+            </div>
           </div>
         </div>
       </section>
@@ -206,8 +151,8 @@ function ScheduleCard({ schedule, compact = false }) {
   return (
     <div className="flex gap-3 rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
       <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-orange-100 bg-white shadow-sm">
-        <span className="text-[10px] font-black text-orange-500">{schedule.date.getMonth() + 1}월</span>
-        <span className="text-lg font-black text-slate-900">{schedule.date.getDate()}</span>
+        <span className="text-[10px] font-black text-orange-500">{Number(schedule.date.slice(5, 7))}월</span>
+        <span className="text-lg font-black text-slate-900">{Number(schedule.date.slice(8, 10))}</span>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -219,12 +164,12 @@ function ScheduleCard({ schedule, compact = false }) {
         </div>
         {!compact && (
           <p className="mt-1 text-sm font-medium text-slate-500">
-            {schedule.department} · {schedule.doctor} 선생님
+            {schedule.doctorName} 선생님
           </p>
         )}
         {compact && (
           <p className="mt-1 text-xs font-medium text-slate-500">
-            {schedule.department}
+            {schedule.doctorName || '담당의'}
           </p>
         )}
       </div>

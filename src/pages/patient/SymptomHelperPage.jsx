@@ -1,53 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import useAppStore from '../../store/useAppStore';
+import useAiAgent from '../../hooks/useAiAgent';
 
 export default function SymptomHelperPage() {
   const { user } = useAppStore();
-  
-  // 채팅 메시지 상태 관리 (초기 안내 메시지 수정됨)
-  const [messages, setMessages] = useState([
-    { 
-      id: 1, 
-      sender: 'bot', 
-      text: `안녕하세요, ${user?.name || '환자'}님. 무엇이 불편하신지 편하게 말씀해 주세요.\n\n"어디가 아픈지 정확히 모르겠어요", "몸이 무거워요" 처럼 느끼시는 그대로 적어주시면, 제가 의사 선생님이 쉽게 이해하실 수 있는 정확한 증상 기록으로 정리해 드릴게요.` 
-    }
-  ]);
-  const [inputValue, setInputValue] = useState('');
-  
-  // 자동 스크롤을 위한 참조
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-
-    // 사용자 메시지 화면에 추가
-    const newUserMessage = {
-      id: Date.now(),
-      sender: 'user',
-      text: inputValue
-    };
-    setMessages((prev) => [...prev, newUserMessage]);
-    setInputValue('');
-
-    // 임시 AI 응답 (나중에 API)
-    setTimeout(() => {
-      const botResponse = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        text: '말씀해주신 상태를 잘 기록했습니다. 언제부터 이런 증상이 시작되셨나요? 조금 더 자세히 알려주시면 담당 의료진에게 더욱 정확하게 전달할 수 있습니다.\n\n(※ 현재는 답변 테스트 중입니다. 추후 입력하신 내용을 바탕으로 의료진 전달용 요약본이 생성됩니다.)'
-      };
-      setMessages((prev) => [...prev, botResponse]);
-    }, 1000);
-  };
+  const {
+    messages,
+    inputValue,
+    setInputValue,
+    isSending,
+    messagesEndRef,
+    sendMessage,
+  } = useAiAgent({
+    role: 'patient',
+    initialMessage: `안녕하세요, ${user?.name || '환자'}님. 무엇이 불편하신지 편하게 말씀해 주세요.\n\n"어디가 아픈지 정확히 모르겠어요", "몸이 무거워요" 처럼 느끼시는 그대로 적어주시면, 제가 의사 선생님이 쉽게 이해하실 수 있는 정확한 증상 기록으로 정리해 드릴게요.`,
+  });
 
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-140px)] flex flex-col animate-in fade-in duration-500">
@@ -95,7 +62,7 @@ export default function SymptomHelperPage() {
         {/* 하단 입력 폼 영역 */}
         <div className="bg-white p-4 border-t border-gray-100">
           <form 
-            onSubmit={handleSendMessage} 
+            onSubmit={sendMessage} 
             className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-gray-200 focus-within:border-purple-300 focus-within:ring-2 focus-within:ring-purple-100 transition-all"
           >
             <input
@@ -107,10 +74,10 @@ export default function SymptomHelperPage() {
             />
             <button 
               type="submit"
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isSending}
               className="bg-[#766c8a] hover:bg-[#5b526d] disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold transition-colors shrink-0"
             >
-              전송
+              {isSending ? '전송중' : '전송'}
             </button>
           </form>
         </div>

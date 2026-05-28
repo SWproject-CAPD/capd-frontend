@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import { patientApi } from '../api/apiClient';
+import { toApiSex } from '../api/adapters';
 
 export default function PatientRegister() {
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     email: '',           // 이메일
     password: '',        // 비밀번호
@@ -13,26 +16,81 @@ export default function PatientRegister() {
     name: '',            // 이름
     age: '',             // 나이
     phone: '',           // 전화번호
-    gender: 'male',      // 성별 
+    gender: 'male',      // 성별
   });
+
+  const [emailCode, setEmailCode] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData({ ...formData, [name]: value });
+
+    if (name === 'email') {
+      setEmailCode('');
+      setEmailSent(false);
+      setEmailVerified(false);
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert("비밀번호가 일치하지 않습니다.");
+  const handleSendEmailCode = async () => {
+    if (!formData.email.trim()) {
+      alert('이메일을 먼저 입력해주세요.');
       return;
     }
-    
-    // 가입 데이터 확인용 로그
-    console.log("환자 가입 데이터:", formData);
-    
-    alert("환자 회원가입이 완료되었습니다. 로그인해주세요.");
-    navigate('/login');
+
+    setIsSendingEmail(true);
+
+    setEmailSent(false);
+    setEmailVerified(false);
+    setIsSendingEmail(false);
+    alert('이메일 인증 API는 백엔드 추가 예정입니다. 현재 회원가입은 인증 없이 진행됩니다.');
+  };
+
+  const handleCheckEmailCode = async () => {
+    if (!emailCode.trim()) {
+      alert('인증번호를 입력해주세요.');
+      return;
+    }
+
+    setIsCheckingCode(true);
+
+    setIsCheckingCode(false);
+    alert('이메일 인증 API가 추가되면 이 단계에서 인증번호를 확인합니다.');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      alert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await patientApi.signUp({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone,
+        sex: toApiSex(formData.gender),
+        age: Number(formData.age),
+      });
+
+      alert('환자 회원가입이 완료되었습니다. 로그인해주세요.');
+      navigate('/login');
+    } catch (submitError) {
+      alert(submitError.message || '회원가입에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -40,23 +98,23 @@ export default function PatientRegister() {
       <Card className="w-full max-w-lg p-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">환자 회원가입</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          
-          <Input 
-            label="이름" 
-            name="name" 
-            placeholder="성함을 입력하세요" 
-            onChange={handleChange} 
-            required 
+          <Input
+            label="이름"
+            name="name"
+            placeholder="성함을 입력하세요"
+            onChange={handleChange}
+            required
           />
 
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="나이" 
-              name="age" 
+            <Input
+              label="나이"
+              name="age"
               placeholder="숫자만 입력"
-              onChange={handleChange} 
-              required 
+              onChange={handleChange}
+              required
             />
+
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-gray-700">성별</label>
               <select
@@ -71,44 +129,89 @@ export default function PatientRegister() {
             </div>
           </div>
 
-          <Input 
-            label="전화번호" 
-            name="phone" 
-            placeholder="010-0000-0000" 
-            onChange={handleChange} 
-            required 
+          <Input
+            label="전화번호"
+            name="phone"
+            placeholder="010-0000-0000"
+            onChange={handleChange}
+            required
           />
 
-          <Input 
-            label="이메일" 
-            name="email" 
-            type="email" 
-            placeholder="example@mail.com" 
-            onChange={handleChange} 
-            required 
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-gray-700">이메일</label>
+            <div className="flex gap-2">
+              <input
+                name="email"
+                type="email"
+                placeholder="example@mail.com"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={emailVerified}
+                required
+                className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 outline-none transition-all focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+              />
+              <button
+                type="button"
+                onClick={handleSendEmailCode}
+                disabled={isSendingEmail || emailVerified}
+                className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${
+                  emailVerified
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-300'
+                }`}
+              >
+                {emailVerified ? '인증완료' : isSendingEmail ? '전송중' : '인증하기'}
+              </button>
+            </div>
+
+            {emailSent && !emailVerified && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={emailCode}
+                  onChange={(e) => setEmailCode(e.target.value)}
+                  placeholder="인증번호 입력"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-slate-50 px-3 py-2.5 text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleCheckEmailCode}
+                  disabled={isCheckingCode}
+                  className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 transition-colors hover:bg-blue-100 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  {isCheckingCode ? '확인중' : '확인하기'}
+                </button>
+              </div>
+            )}
+
+            {emailVerified && (
+              <p className="text-xs font-bold text-blue-600">이메일 인증이 완료되었습니다.</p>
+            )}
+          </div>
+
+          <Input
+            label="비밀번호"
+            name="password"
+            type="password"
+            placeholder="8자 이상 입력"
+            onChange={handleChange}
+            required
           />
 
-          <Input 
-            label="비밀번호" 
-            name="password" 
-            type="password" 
-            placeholder="8자 이상 입력" 
-            onChange={handleChange} 
-            required 
+          <Input
+            label="비밀번호 확인"
+            name="confirmPassword"
+            type="password"
+            placeholder="비밀번호 재입력"
+            onChange={handleChange}
+            required
           />
-          
-          <Input 
-            label="비밀번호 확인" 
-            name="confirmPassword" 
-            type="password" 
-            placeholder="비밀번호 재입력" 
-            onChange={handleChange} 
-            required 
-          />
-          
+
           <div className="pt-4 flex flex-col gap-3">
-            <Button type="submit" className="w-full py-3 text-lg">가입 완료</Button>
-            <Button variant="outline" onClick={() => navigate('/login')} className="w-full">
+            <Button type="submit" disabled={isSubmitting} className="w-full py-3 text-lg">
+              {isSubmitting ? '가입 중' : '가입 완료'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => navigate('/login')} className="w-full">
               이전으로
             </Button>
           </div>

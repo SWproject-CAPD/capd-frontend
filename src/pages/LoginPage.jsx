@@ -4,20 +4,35 @@ import useAppStore from '../store/useAppStore';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import { authApi } from '../api/apiClient';
 
 export default function LoginPage() {
   const [isDoctor, setIsDoctor] = useState(false);
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
-  const { setUser } = useAppStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { setSession } = useAppStore();
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // 실제 API 연동 전 테스트용 로직
-    const role = isDoctor ? 'doctor' : 'patient';
-    setUser({ name: isDoctor ? '김의사' : '이환자', role });
-    navigate(isDoctor ? '/doctor' : '/patient');
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const role = isDoctor ? 'doctor' : 'patient';
+      const response = isDoctor
+        ? await authApi.loginDoctor({ licenseId: id, password })
+        : await authApi.loginPatient({ email: id, password });
+
+      setSession(role, response);
+      navigate(isDoctor ? '/doctor' : '/patient');
+    } catch (loginError) {
+      setError(loginError.message || '로그인에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,8 +75,13 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          {error && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+              {error}
+            </div>
+          )}
           <Button type="submit" className="w-full py-3 text-lg mt-2">
-            로그인
+            {isLoading ? '로그인 중' : '로그인'}
           </Button>
         </form>
 

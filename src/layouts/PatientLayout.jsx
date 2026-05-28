@@ -1,12 +1,18 @@
 import React from 'react';
 import { Outlet, useNavigate, NavLink, Link } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
+import { authApi } from '../api/apiClient';
 
 export default function PatientLayout() {
   const { user, logout } = useAppStore();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logoutPatient();
+    } catch {
+      // 서버 세션 종료에 실패해도 클라이언트 세션은 정리합니다.
+    }
     logout();
     navigate('/login');
   };
@@ -40,6 +46,17 @@ export default function PatientLayout() {
             <span className="font-semibold text-xs md:text-sm text-slate-700">{user?.name || '김환자'}님</span>
           </div>
           <div className="h-4 md:h-5 w-px bg-gray-300"></div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/patient/mypage')}
+            className="hidden sm:flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs md:text-sm font-bold text-blue-600 shadow-sm transition-all hover:bg-blue-100 hover:text-blue-700 active:scale-95"
+          >
+          <span className="text-sm">👤</span>
+            내정보
+          </button>
+          <div className="h-4 md:h-5 w-px bg-gray-300"></div>
+          
           <button 
             onClick={handleLogout} 
             className="text-xs md:text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"

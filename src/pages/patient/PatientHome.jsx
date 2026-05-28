@@ -1,10 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../../store/useAppStore';
+import { getUpcomingReservation, usePatientMe, usePatientReservations } from '../../hooks/usePatientData';
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
   const { user } = useAppStore(); 
+  const { data: patient } = usePatientMe();
+  const { data: reservations = [] } = usePatientReservations();
+  const upcomingReservation = getUpcomingReservation(reservations);
+  const displayName = patient?.name || user?.name || '환자';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12 max-w-4xl mx-auto">
@@ -13,9 +18,11 @@ export default function PatientDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-2">
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-snug">
-            안녕하세요, <span className="text-blue-600">{user?.name || '김환자'}</span> 님!<br />
+            안녕하세요, <span className="text-blue-600">{displayName}</span> 님!<br />
           </h1>
-          <p className="text-slate-500 mt-2 font-medium">담당의: 김의사 선생님</p>
+          <p className="text-slate-500 mt-2 font-medium">
+            담당의: {upcomingReservation?.doctorName ? `${upcomingReservation.doctorName} 선생님` : '예약 정보에서 확인 가능'}
+          </p>
         </div>
         
         {/* 마지막 상태 알림 */}
@@ -26,7 +33,9 @@ export default function PatientDashboard() {
           </span>
           <div className="flex flex-col">
             <span className="text-[11px] font-bold text-slate-400 tracking-wide">마지막 기록</span>
-            <span className="text-sm font-black text-slate-700">오늘 오후 2:30</span>
+            <span className="text-sm font-black text-slate-700">
+              {upcomingReservation ? `${upcomingReservation.date} ${upcomingReservation.time}` : '예정 없음'}
+            </span>
           </div>
         </div>
       </div>
