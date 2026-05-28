@@ -1,0 +1,25 @@
+/* Tailwind CSS */
+@import "tailwindcss";
+
+/* 기본 스타일 및 폰트 일괄 적용 */
+@layer base {
+  html, body {
+    /* 기본 배경색/글자색 */
+    @apply bg-gray-100 text-gray-800 antialiased;
+  }
+
+/* 스크롤바 디자인 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
