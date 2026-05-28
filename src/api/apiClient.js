@@ -96,8 +96,10 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const session = getStoredSession();
+    const status = error.response?.status;
     const canRefresh = (
-      error.response?.status === 401 &&
+      // 백엔드는 만료된 accessToken에 401 대신 403을 줄 수 있어 두 상태 모두 refresh 대상으로 봅니다.
+      (status === 401 || status === 403) &&
       originalRequest &&
       !originalRequest._retry &&
       !originalRequest.skipAuthRefresh &&
