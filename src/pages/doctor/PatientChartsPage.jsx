@@ -1,8 +1,8 @@
 ﻿import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Area, Bar, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, } from 'recharts';
-import { patientsData } from '../../api/mockPatients';
 import BackToPatientButton from '../../components/BackToPatientButton';
+import { useDoctorPatientBundle } from '../../hooks/usePatientData';
 
 const MAX_EXCHANGE_COUNT = 5;
 
@@ -33,16 +33,15 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function PatientChartsPage() {
     const { id } = useParams();
-    const patient = patientsData.find(p => p.id === id) || patientsData[0];
+    const { data, isLoading } = useDoctorPatientBundle(id);
+    const patient = data.patient;
+    const records = data.records;
 
     const chartData = useMemo(() => {
-        const source = patient.history?.slice(0, 14).reverse() || [];
+        const source = records.slice(0, 14).reverse() || [];
 
-        return source.map((item, index) => {
+        return source.map((item) => {
             const exchanges = item.exchanges || [];
-            const fbs = Math.round(92 + Math.sin(index * 0.9) * 13 + (index % 5) * 4);
-            const urineCount = Math.max(0, Math.round(4 + Math.cos(index * 0.8) * 2 - (index % 6 === 0 ? 2 : 0)));
-            const cloudyYn = index % 7 === 0 || index % 11 === 0;
 
             return {
                 date: item.displayDate || item.date,
@@ -50,20 +49,20 @@ export default function PatientChartsPage() {
                 weight: item.weight,
                 systolic: item.bpSystolic,
                 diastolic: item.bpDiastolic,
-                fbs,
-                urineCount,
-                cloudyYn: cloudyYn ? 1 : 0,
+                fbs: item.fbs || 0,
+                urineCount: item.urineCount || 0,
+                cloudyYn: item.cloudyDialysate ? 1 : 0,
                 submitCount: exchanges.length,
             };
         });
-    }, [patient.history]);
+    }, [records]);
 
     const latest = useMemo(() => {
         return chartData[chartData.length - 1] || {};
     }, [chartData]);
 
     const latestExchangeData = useMemo(() => {
-        const latestHistory = patient.history?.[0];
+        const latestHistory = records[0];
         const exchanges = latestHistory?.exchanges || [];
 
         return exchanges.slice(0, MAX_EXCHANGE_COUNT).map((exchange, index) => ({
@@ -73,7 +72,15 @@ export default function PatientChartsPage() {
             uf: exchange.uf ?? 0,
             concentration: Number(exchange.concentration) || 0,
         }));
-    }, [patient.history]);
+    }, [records]);
+
+    if (isLoading) {
+        return <div className="p-8 text-sm font-bold text-slate-400">차트 데이터를 불러오는 중입니다.</div>;
+    }
+
+    if (!patient) {
+        return <div className="p-8 text-sm font-bold text-slate-400">환자 정보를 찾을 수 없습니다.</div>;
+    }
 
     return (
         <div className="flex h-full flex-col overflow-hidden bg-slate-50 p-4 animate-in fade-in duration-500 md:p-5">

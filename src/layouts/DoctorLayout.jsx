@@ -1,71 +1,132 @@
-﻿import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, Link, useParams } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
-import { patientsData } from '../api/mockPatients';
+import DoctorChatPage from '../pages/doctor/DoctorChatPage';
+import { authApi } from '../api/apiClient';
+import { toDateKey } from '../api/adapters';
+import {
+  useDoctorPatients,
+  useDoctorReservationsByDate,
+  useDoctorReservationsByDateRange,
+} from '../hooks/usePatientData';
 
 export default function DoctorLayout() {
-  const {
-    user,
-    logout,
-    currentDoctorId,
-    patientAssignments,
-  } = useAppStore();
-
+  const { user, logout } = useAppStore();
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const [patientTab, setPatientTab] = useState('today');
+  const [patientTab, setPatientTab] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [searchQuery, setSearchQuery] = useState('');
-
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-
-  const patients = patientsData.filter((patient) => {
-    return patientAssignments[patient.id]?.doctorId === currentDoctorId;
-  });
-
-  const canAccessSelectedPatient = !id || patients.some((patient) => patient.id === id);
-
-  const scheduledPatients = [...patients].sort((a, b) => a.time.localeCompare(b.time));
-  const nextPatient = scheduledPatients.find(p => p.status === 'waiting') || scheduledPatients[0];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
+  const todayKey = toDateKey(new Date());
+  const selectedDateKey = toDateKey(selectedDate);
+  const monthStartKey = toDateKey(new Date(year, month, 1));
+  const monthEndKey = toDateKey(new Date(year, month, daysInMonth));
+  const { data: patients = [], isLoading: isPatientsLoading } = useDoctorPatients();
+  const { data: todayReservations = [], reload: reloadTodayReservations } = useDoctorReservationsByDate(todayKey);
+  const {
+    data: selectedDateReservations = [],
+    reload: reloadSelectedDateReservations,
+  } = useDoctorReservationsByDate(selectedDateKey);
+  const {
+    data: monthReservations = [],
+    reload: reloadMonthReservations,
+  } = useDoctorReservationsByDateRange(monthStartKey, monthEndKey);
+
+  const selectedPatient = patients.find(patient => String(patient.id) === String(id));
+  const todayPatientIds = new Set(todayReservations.map(reservation => String(reservation.patientId)));
+  const scheduledPatients = [...selectedDateReservations].sort((a, b) => a.time.localeCompare(b.time));
+  const appointmentDateSet = useMemo(() => (
+    new Set(monthReservations.map(reservation => reservation.date).filter(Boolean))
+  ), [monthReservations]);
+
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-  const handleLogout = () => {
+  useEffect(() => {
+    const handleReservationsChanged = (event) => {
+      const changedDate = event.detail?.date;
+
+      if (changedDate) {
+        const nextDate = toLocalDate(changedDate);
+        setSelectedDate(nextDate);
+        setCurrentDate(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+      }
+
+      if (!changedDate || changedDate === todayKey) {
+        void reloadTodayReservations().catch(() => {});
+      }
+
+      if (!changedDate || changedDate === selectedDateKey) {
+        void reloadSelectedDateReservations().catch(() => {});
+      }
+
+      if (!changedDate || (changedDate >= monthStartKey && changedDate <= monthEndKey)) {
+        void reloadMonthReservations().catch(() => {});
+      }
+    };
+
+    window.addEventListener('capd:reservations-changed', handleReservationsChanged);
+
+    return () => {
+      window.removeEventListener('capd:reservations-changed', handleReservationsChanged);
+    };
+  }, [
+    monthEndKey,
+    monthStartKey,
+    reloadMonthReservations,
+    reloadSelectedDateReservations,
+    reloadTodayReservations,
+    selectedDateKey,
+    todayKey,
+  ]);
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logoutDoctor();
+    } catch {
+      // 서버 세션 종료에 실패해도 클라이언트 세션은 정리합니다.
+    }
+
     logout();
     navigate('/login');
   };
 
-  let displayedPatients = patients;
+  let displayedPatients = patientTab === 'today'
+    ? patients.filter(patient => todayPatientIds.has(String(patient.id)))
+    : patients;
 
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase();
-    displayedPatients = displayedPatients.filter(p =>
-      p.name.toLowerCase().includes(query) ||
-      p.id.toLowerCase().includes(query) ||
-      p.age.toString().includes(query) ||
-      p.sex.includes(query)
-    );
+    const normalizedQuery = query.replace(/-/g, '');
+    displayedPatients = displayedPatients.filter(patient => (
+      patient.name.toLowerCase().includes(query) ||
+      String(patient.id).toLowerCase().includes(query) ||
+      String(patient.age).includes(query) ||
+      patient.sex.includes(query) ||
+      patient.phone.replace(/-/g, '').includes(normalizedQuery)
+    ));
   }
 
   if (sortBy === 'name') {
     displayedPatients = [...displayedPatients].sort((a, b) => a.name.localeCompare(b.name));
   } else if (sortBy === 'age') {
-    displayedPatients = [...displayedPatients].sort((a, b) => b.age - a.age);
+    displayedPatients = [...displayedPatients].sort((a, b) => Number(b.age || 0) - Number(a.age || 0));
   }
 
   return (
     <div className="h-screen flex flex-col bg-gray-100 overflow-hidden font-sans text-slate-900">
       <header className="h-14 bg-slate-900 text-white px-4 flex justify-between items-center z-30 shrink-0 shadow-lg">
         <Link to="/doctor" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center font-bold text-white text-xl">✚</div>
+          <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center font-bold text-white text-xl">+</div>
           <div className="text-lg font-bold tracking-tight">
             CAPD <span className="font-light text-slate-400">EMR System</span>
           </div>
@@ -76,6 +137,16 @@ export default function DoctorLayout() {
             <span className="text-sm font-medium text-slate-200">{user?.name || '담당의'} 선생님</span>
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/doctor/mypage')}
+            className="hidden sm:flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-200 transition-all hover:border-blue-500 hover:bg-blue-500/10 hover:text-white active:scale-95"
+          >
+            <span className="text-[11px]">👤</span>
+            내정보
+          </button>
+
           <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-white border border-slate-700 px-3 py-1 rounded-md transition-all">
             로그아웃
           </button>
@@ -87,16 +158,16 @@ export default function DoctorLayout() {
           <div className="p-3 border-b space-y-3 bg-slate-50">
             <div className="flex bg-gray-200 p-1 rounded-lg">
               <button
-                onClick={() => setPatientTab('today')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${patientTab === 'today' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
-              >
-                오늘 진료
-              </button>
-              <button
                 onClick={() => setPatientTab('all')}
                 className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${patientTab === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
               >
                 환자 목록
+              </button>
+              <button
+                onClick={() => setPatientTab('today')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${patientTab === 'today' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+              >
+                오늘 진료
               </button>
             </div>
 
@@ -129,42 +200,42 @@ export default function DoctorLayout() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {displayedPatients.length > 0 ? (
-              displayedPatients.map((p) => (
+            {isPatientsLoading ? (
+              <div className="text-center py-6 text-xs text-gray-400 font-medium">
+                담당 환자 목록을 불러오는 중입니다.
+              </div>
+            ) : displayedPatients.length > 0 ? (
+              displayedPatients.map((patient) => (
                 <button
-                  key={p.id}
-                  onClick={() => navigate(`/doctor/${p.id}`)}
+                  key={patient.id}
+                  onClick={() => navigate(`/doctor/${patient.id}`)}
                   className="w-full text-left p-3 rounded-xl border border-transparent hover:border-blue-100 hover:bg-blue-50 transition-all group"
                 >
                   <div className="flex justify-between items-start">
-                    <span className="font-bold text-gray-800">{p.name}</span>
-                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{p.id}</span>
+                    <span className="font-bold text-gray-800">{patient.name}</span>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{patient.id}</span>
                   </div>
                   <div className="flex justify-between items-center mt-1">
                     <div className="flex flex-col">
-                      <span className="text-xs text-gray-500">{p.sex}/{p.age}세</span>
-                      <span className="text-[11px] text-gray-500">최근: {p.lastDialysis}</span>
+                      <span className="text-xs text-gray-500">{patient.sex}/{patient.age}세</span>
+                      <span className="text-[11px] text-gray-500">{patient.phone}</span>
                     </div>
-                    <span className={`text-[11px] font-bold ${p.status === 'waiting' ? 'text-orange-500' : 'text-gray-400'}`}>
-                      {p.status === 'waiting' ? `대기 (${p.time})` : '진료완료'}
+                    <span className="text-[11px] font-bold text-blue-500">
+                      담당
                     </span>
                   </div>
                 </button>
               ))
             ) : (
               <div className="text-center py-6 text-xs text-gray-400 font-medium">
-                담당 환자 중 검색 결과가 없습니다.
+                조건에 맞는 담당 환자가 없습니다.
               </div>
             )}
           </div>
         </aside>
 
         <main className="flex-1 overflow-y-auto bg-slate-50 relative">
-          {canAccessSelectedPatient ? (
-            <Outlet />
-          ) : (
-            <AccessDeniedPatient onBack={() => navigate('/doctor')} />
-          )}
+          <Outlet />
         </main>
 
         <aside className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0 z-10">
@@ -178,16 +249,16 @@ export default function DoctorLayout() {
             </div>
 
             <div className="grid grid-cols-7 gap-1 text-center">
-              {['일','월','화','수','목','금','토'].map(d => (
-                <span key={d} className="text-[10px] font-bold text-gray-400 mb-2">{d}</span>
+              {['일','월','화','수','목','금','토'].map(day => (
+                <span key={day} className="text-[10px] font-bold text-gray-400 mb-2">{day}</span>
               ))}
-              {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                <div key={`blank-${i}`} className="h-8"></div>
+              {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+                <div key={`blank-${index}`} className="h-8"></div>
               ))}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
+              {Array.from({ length: daysInMonth }).map((_, index) => {
+                const day = index + 1;
                 const isSelected = selectedDate.getDate() === day && selectedDate.getMonth() === month && selectedDate.getFullYear() === year;
-                const hasAppointment = day % 4 === 0;
+                const hasAppointment = appointmentDateSet.has(toDateKey(new Date(year, month, day)));
 
                 return (
                   <div
@@ -226,75 +297,51 @@ export default function DoctorLayout() {
               </button>
             </div>
           </div>
-          
+
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-4 py-3 bg-slate-50 border-b flex justify-between items-center">
               <span className="text-xs font-bold text-gray-600">{selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 예약 현황</span>
               <span className="text-xs text-blue-600 font-bold">{scheduledPatients.length}건</span>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {scheduledPatients.map((sch) => (
-                <div key={sch.id} className={`flex gap-3 items-start border-l-2 pl-3 py-1 ${sch.status === 'waiting' ? 'border-orange-400' : 'border-blue-200'}`}>
-                  <span className={`text-xs font-bold w-10 mt-0.5 ${sch.status === 'waiting' ? 'text-orange-500' : 'text-gray-400'}`}>
-                    {sch.time}
+              {scheduledPatients.map((reservation) => (
+                <div key={reservation.id} className="flex gap-3 items-start border-l-2 border-blue-200 pl-3 py-1">
+                  <span className="text-xs font-bold w-10 mt-0.5 text-blue-500">
+                    {reservation.time}
                   </span>
                   <div>
                     <button
-                      onClick={() => navigate(`/doctor/${sch.id}`)}
+                      onClick={() => navigate(`/doctor/${reservation.patientId}`)}
                       className="text-sm font-bold text-gray-800 hover:text-blue-600 hover:underline text-left transition-colors flex items-center gap-2"
                     >
-                      {sch.name} 환자
-                      {sch.status === 'waiting' && <span className="text-[9px] bg-orange-100 text-orange-600 px-1 py-0.5 rounded">대기</span>}
+                      {reservation.patientName} 환자
                     </button>
-                    <div className="text-[10px] text-gray-500 font-mono mt-0.5">{sch.id}</div>
+                    <div className="text-[10px] text-gray-500 font-mono mt-0.5">{reservation.phone}</div>
                   </div>
                 </div>
               ))}
+
+              {scheduledPatients.length === 0 && (
+                <div className="text-center py-8 text-xs text-gray-400 font-bold">
+                  선택한 날짜에 예약이 없습니다.
+                </div>
+              )}
             </div>
           </div>
 
-          {nextPatient && (
-            <div className="p-4 bg-slate-900 text-white rounded-t-3xl shadow-2xl relative z-20">
-              <div className="text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-widest">Upcoming Next</div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="text-lg font-black">{nextPatient.time} <span className="text-sm font-normal text-slate-400">{nextPatient.name} 환자</span></div>
-                  <div className="text-xs text-slate-400 mt-1">대기실에서 준비 중입니다.</div>
-                </div>
-                <button
-                  onClick={() => navigate(`/doctor/${nextPatient.id}`)}
-                  className="bg-blue-600 p-3 rounded-full hover:bg-blue-500 transition-colors shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center"
-                >
-                  ▶
-                </button>
-              </div>
-            </div>
-          )}
+          <DoctorChatPage currentPatient={selectedPatient} />
         </aside>
       </div>
     </div>
   );
 }
 
-function AccessDeniedPatient({ onBack }) {
-  return (
-    <div className="h-full flex items-center justify-center p-8">
-      <div className="max-w-md w-full bg-white border border-gray-100 rounded-3xl shadow-sm p-8 text-center">
-        <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center font-black text-xl">
-          !
-        </div>
-        <h2 className="text-xl font-black text-gray-900">담당 환자만 조회할 수 있습니다</h2>
-        <p className="text-sm text-gray-500 font-medium mt-3 leading-relaxed">
-          현재 로그인한 의사의 담당 환자가 아니므로 환자 상세 정보에 접근할 수 없습니다.
-        </p>
-        <button
-          type="button"
-          onClick={onBack}
-          className="mt-6 px-5 py-3 rounded-xl bg-blue-600 text-white text-sm font-black hover:bg-blue-700 transition-colors"
-        >
-          담당 환자 목록으로 이동
-        </button>
-      </div>
-    </div>
-  );
+function toLocalDate(dateKey) {
+  const [year, month, day] = String(dateKey).split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return new Date();
+  }
+
+  return new Date(year, month - 1, day);
 }

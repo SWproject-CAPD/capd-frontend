@@ -1,7 +1,8 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { patientsData } from '../../api/mockPatients';
-import useAppStore from '../../store/useAppStore';
+import { reservationApi } from '../../api/apiClient';
+import { toDateKey, toDateTimeInputValue } from '../../api/adapters';
+import { useDoctorPatientProfile, useDoctorPatients } from '../../hooks/usePatientData';
 
 const appointmentTypes = [
   { value: '정기 검진', description: '정기 외래 진료' },
@@ -12,34 +13,37 @@ const appointmentTypes = [
 
 export default function AppointmentCreatePage() {
   const navigate = useNavigate();
-  const { currentDoctorId, currentDoctorName, patientAssignments } = useAppStore();
-
-  const assignedPatients = useMemo(() => {
-    return patientsData.filter(patient => patientAssignments[patient.id]?.doctorId === currentDoctorId);
-  }, [currentDoctorId, patientAssignments]);
-
-  const today = new Date();
-  const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const { data: assignedPatients = [] } = useDoctorPatients();
+  const todayKey = toDateKey(new Date());
 
   const [formData, setFormData] = useState({
-    patientId: assignedPatients[0]?.id || '',
-    date: defaultDate,
+    patientId: '',
+    date: todayKey,
     time: '09:00',
     type: '정기 검진',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const selectedPatient = assignedPatients.find(patient => patient.id === formData.patientId);
+  const selectedPatient = useMemo(() => (
+    assignedPatients.find(patient => String(patient.id) === String(formData.patientId)) || assignedPatients[0]
+  ), [assignedPatients, formData.patientId]);
+  const { data: selectedPatientProfile, isLoading: isPatientProfileLoading } = useDoctorPatientProfile(selectedPatient?.id);
+  const displayPatient = useMemo(() => (
+    mergePatientProfile(selectedPatient, selectedPatientProfile)
+  ), [selectedPatient, selectedPatientProfile]);
+
+  React.useEffect(() => {
+    if (!formData.patientId && assignedPatients[0]?.id) {
+      setFormData(prev => ({ ...prev, patientId: assignedPatients[0].id }));
+    }
+  }, [assignedPatients, formData.patientId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleTypeSelect = (type) => {
-    setFormData(prev => ({ ...prev, type }));
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.patientId) {
@@ -47,16 +51,25 @@ export default function AppointmentCreatePage() {
       return;
     }
 
-    const appointmentPayload = {
-      ...formData,
-      doctorId: currentDoctorId,
-      doctorName: currentDoctorName,
-      patientName: selectedPatient?.name,
-    };
+    setIsSubmitting(true);
 
-    console.log('예약 등록 데이터:', appointmentPayload);
-    alert('환자 예약이 등록되었습니다.');
-    navigate(`/doctor/${formData.patientId}`);
+    try {
+      const reservation = await reservationApi.create({
+        patientId: Number(formData.patientId),
+        reservationDate: toDateTimeInputValue(formData.date, formData.time),
+      });
+
+      window.dispatchEvent(new CustomEvent('capd:reservations-changed', {
+        detail: { date: formData.date, reservation },
+      }));
+
+      alert('환자 예약이 등록되었습니다.');
+      navigate('/doctor/appointments/check');
+    } catch (error) {
+      alert(error.message || '예약 등록에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -149,7 +162,7 @@ export default function AppointmentCreatePage() {
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => handleTypeSelect(type.value)}
+                      onClick={() => setFormData(prev => ({ ...prev, type: type.value }))}
                       className={`rounded-2xl border p-4 text-left transition-all ${
                         isActive
                           ? 'border-blue-500 bg-blue-50 shadow-sm ring-2 ring-blue-100'
@@ -174,25 +187,25 @@ export default function AppointmentCreatePage() {
           <section className="flex min-h-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <h2 className="mb-3 shrink-0 text-base font-black text-slate-900">예약 대상 환자</h2>
 
-            {selectedPatient ? (
+            {displayPatient ? (
               <div className="flex min-h-0 flex-1 flex-col justify-between rounded-2xl bg-slate-50 p-5">
                 <div>
                   <div className="flex items-center gap-4">
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-black text-blue-600">
-                      {selectedPatient.name.charAt(0)}
+                      {displayPatient.name.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-xl font-black text-slate-900">{selectedPatient.name}</div>
+                      <div className="truncate text-xl font-black text-slate-900">{displayPatient.name}</div>
                       <div className="mt-1 text-sm font-bold text-slate-400">
-                        {selectedPatient.id} · {selectedPatient.sex}/{selectedPatient.age}세
+                        {displayPatient.id} · {displayPatient.sex}/{displayPatient.age}세
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-5 grid grid-cols-3 gap-3">
-                    <InfoBox label="CAPD 시작일" value={selectedPatient.capdStartDate} />
-                    <InfoBox label="최근 투석일" value={selectedPatient.lastDialysis} />
-                    <InfoBox label="담당의" value={`${currentDoctorName} 선생님`} />
+                    <InfoBox label="전화번호" value={displayPatient.phone} isLoading={isPatientProfileLoading} />
+                    <InfoBox label="이메일" value={displayPatient.email} isLoading={isPatientProfileLoading} />
+                    <InfoBox label="환자번호" value={displayPatient.id} />
                   </div>
                 </div>
 
@@ -223,7 +236,7 @@ export default function AppointmentCreatePage() {
               <div className="rounded-2xl border border-blue-100 bg-white/80 p-5">
                 <div className="text-sm font-black text-slate-400">예약 내용</div>
                 <div className="mt-3 truncate text-xl font-black text-slate-900">
-                  {selectedPatient?.name || '환자'}
+                  {displayPatient?.name || '환자'}
                 </div>
                 <div className="mt-3 w-fit rounded-full bg-blue-100 px-3 py-1 text-sm font-black text-blue-700">
                   {formData.type}
@@ -233,15 +246,36 @@ export default function AppointmentCreatePage() {
 
             <button
               type="submit"
-              className="mt-4 shrink-0 w-full rounded-2xl bg-blue-600 py-4 text-base font-black text-white shadow-lg transition-all hover:bg-blue-700 active:scale-[0.99]"
+              disabled={isSubmitting || assignedPatients.length === 0}
+              className="mt-4 shrink-0 w-full rounded-2xl bg-blue-600 py-4 text-base font-black text-white shadow-lg transition-all hover:bg-blue-700 active:scale-[0.99] disabled:bg-slate-300"
             >
-              예약 등록하기
+              {isSubmitting ? '예약 등록 중' : '예약 등록하기'}
             </button>
           </section>
         </aside>
       </form>
     </div>
   );
+}
+
+function mergePatientProfile(patient, profile) {
+  if (!patient) return null;
+  if (!profile) return patient;
+
+  return {
+    ...patient,
+    ...profile,
+    email: preferProfileValue(profile.email, patient.email),
+    phone: preferProfileValue(profile.phone, patient.phone),
+  };
+}
+
+function preferProfileValue(profileValue, fallbackValue) {
+  if (profileValue === undefined || profileValue === null || profileValue === '' || profileValue === '-') {
+    return fallbackValue || '-';
+  }
+
+  return profileValue;
 }
 
 function Field({ label, children }) {
@@ -253,11 +287,13 @@ function Field({ label, children }) {
   );
 }
 
-function InfoBox({ label, value }) {
+function InfoBox({ label, value, isLoading = false }) {
+  const displayValue = isLoading && (!value || value === '-') ? '조회 중' : value;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
       <div className="text-[11px] font-black text-slate-400">{label}</div>
-      <div className="mt-1 wrap-break-word text-xs font-black text-slate-800">{value}</div>
+      <div className="mt-1 wrap-break-word text-xs font-black text-slate-800">{displayValue || '-'}</div>
     </div>
   );
 }
