@@ -8,7 +8,16 @@ const SURVEY_DEADLINE_MESSAGE = '예약 전날까지만 작성 가능합니다.'
 export default function HealthSurveyPage() {
   const navigate = useNavigate();
   const { data: reservations = [], isLoading: isReservationsLoading } = usePatientReservations();
-  const activeReservation = getUpcomingReservation(reservations);
+  const [selectedReservationId, setSelectedReservationId] = useState(null);
+  const writableReservations = useMemo(() => (
+    reservations.filter(reservation => isBeforeAppointmentDate(reservation.date))
+  ), [reservations]);
+  const fallbackReservation = getUpcomingReservation(reservations);
+  const activeReservation = useMemo(() => (
+    reservations.find(reservation => String(reservation.reservationId) === String(selectedReservationId)) ||
+    writableReservations[0] ||
+    fallbackReservation
+  ), [fallbackReservation, reservations, selectedReservationId, writableReservations]);
   const { data: surveyQuestions = [], isLoading: isQuestionsLoading, reload } = usePatientQuestions(activeReservation?.reservationId);
 
   const [answers, setAnswers] = useState({});
@@ -56,9 +65,9 @@ export default function HealthSurveyPage() {
 
     try {
       await surveyApi.submitAnswers(activeReservation.reservationId, {
-        answers: Object.entries(answers).map(([questionId, answer]) => ({
-          questionId: Number(questionId),
-          answer: String(answer),
+        answers: surveyQuestions.map(question => ({
+          questionId: Number(question.questionId),
+          answer: String(answers[question.questionId]),
         })),
       });
 
@@ -109,6 +118,28 @@ export default function HealthSurveyPage() {
               <p className="mt-1 text-xs font-bold text-emerald-600">
                 예약: {activeReservation.date} {activeReservation.time} · {activeReservation.doctorName} 선생님
               </p>
+            )}
+            {writableReservations.length > 1 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {writableReservations.map(reservation => {
+                  const isActive = String(reservation.reservationId) === String(activeReservation?.reservationId);
+
+                  return (
+                    <button
+                      key={reservation.reservationId}
+                      type="button"
+                      onClick={() => setSelectedReservationId(reservation.reservationId)}
+                      className={`rounded-2xl border px-4 py-2 text-xs font-black transition-all ${
+                        isActive
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
+                          : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-emerald-200 hover:bg-emerald-50'
+                      }`}
+                    >
+                      {reservation.date} {reservation.time}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
           <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-center">
