@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Sparkline from '../../components/Sparkline';
-import { useDoctorPatientBundle } from '../../hooks/usePatientData';
+import { useDoctorPatientBundle, useDoctorPatientSurveyOverview } from '../../hooks/usePatientData';
 
 const ShortcutIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -14,6 +14,7 @@ export default function PatientInsightPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { data, isLoading } = useDoctorPatientBundle(id);
+  const { data: surveyOverview } = useDoctorPatientSurveyOverview(id);
   const patient = data.patient;
   const history = data.records;
 
@@ -225,7 +226,7 @@ export default function PatientInsightPage() {
               onClick={() => navigate(`/doctor/${id}/questions_manage`)}
               className="bg-rose-50 border border-rose-100 p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-rose-100 transition-colors h-full text-center"
             >
-              <div className="text-2xl font-black text-rose-600 mb-1">-</div>
+              <div className="text-2xl font-black text-rose-600 mb-1">{surveyOverview.pendingQuestions}</div>
               <div className="text-[10px] font-bold text-rose-800">승인 대기 질문</div>
             </button>
 
@@ -234,7 +235,7 @@ export default function PatientInsightPage() {
               onClick={() => navigate(`/doctor/${id}/questions_list`)}
               className="bg-blue-50 border border-blue-100 p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors h-full text-center"
             >
-              <div className="text-2xl font-black text-blue-600 mb-1">-</div>
+              <div className="text-2xl font-black text-blue-600 mb-1">{surveyOverview.submittedSurveys}</div>
               <div className="text-[10px] font-bold text-blue-800">응답 완료 설문</div>
             </button>
           </div>

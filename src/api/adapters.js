@@ -247,16 +247,23 @@ export const normalizeQuestion = (question = {}) => ({
   createdAt: question.createdAt,
 });
 
-export const normalizeAnswer = (answer = {}) => ({
-  id: answer.answerId,
-  answerId: answer.answerId,
-  questionId: answer.questionId,
-  patientId: answer.patientId,
-  patientName: answer.patientName,
-  question: answer.question || '',
-  answer: answer.answer || '',
-  createdAt: answer.createdAt,
-});
+export const normalizeAnswer = (answer = {}) => {
+  const questionData = typeof answer.question === 'object' ? answer.question : answer.surveyQuestion;
+  const questionText = typeof answer.question === 'string'
+    ? answer.question
+    : questionData?.question || answer.questionText || '';
+
+  return {
+    id: answer.answerId || answer.id,
+    answerId: answer.answerId || answer.id,
+    questionId: answer.questionId || answer.surveyQuestionId || questionData?.questionId || questionData?.id,
+    patientId: answer.patientId,
+    patientName: answer.patientName,
+    question: questionText,
+    answer: answer.answer ?? answer.content ?? answer.response ?? answer.value ?? '',
+    createdAt: answer.createdAt,
+  };
+};
 
 export const normalizeChatMessagePair = (chat = {}) => ([
   {

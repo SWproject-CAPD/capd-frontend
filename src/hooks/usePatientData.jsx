@@ -25,6 +25,8 @@ import {
 const DOCTOR_RESERVATION_LOOKBACK_DAYS = 30;
 const DOCTOR_RESERVATION_LOOKAHEAD_DAYS = 0;
 const RESERVATION_DATE_QUERY_BATCH_SIZE = 20;
+const SURVEY_OVERVIEW_LOOKBACK_DAYS = 30;
+const SURVEY_OVERVIEW_LOOKAHEAD_DAYS = 90;
 const pendingTempCapdRequests = new Map();
 
 export function usePatientMe() {
@@ -189,6 +191,92 @@ export function useDoctorAnswers(reservationId) {
     const answers = await surveyApi.getDoctorAnswers(reservationId);
     return (answers || []).map(normalizeAnswer);
   }, [reservationId], { initialData: [] });
+}
+
+export function usePatientAnswers(reservationId) {
+  return useAsyncData(async () => {
+    if (!reservationId) return [];
+    const answers = await surveyApi.getPatientAnswers(reservationId);
+    return (answers || []).map(normalizeAnswer);
+  }, [reservationId], { initialData: [] });
+}
+
+export function useDoctorPatientSurveyOverview(patientId) {
+  return useAsyncData(async () => {
+    if (!patientId) {
+      return {
+        reservations: [],
+        pendingQuestions: 0,
+        approvedQuestions: 0,
+        rejectedQuestions: 0,
+        submittedSurveys: 0,
+        totalAnswers: 0,
+      };
+    }
+
+    const startDate = toDateKey(addDays(toDateKey(), -SURVEY_OVERVIEW_LOOKBACK_DAYS));
+    const endDate = toDateKey(addDays(toDateKey(), SURVEY_OVERVIEW_LOOKAHEAD_DAYS));
+    const dateKeys = getDateRangeKeys(startDate, endDate);
+    const reservations = [];
+
+    for (let index = 0; index < dateKeys.length; index += RESERVATION_DATE_QUERY_BATCH_SIZE) {
+      const batchDates = dateKeys.slice(index, index + RESERVATION_DATE_QUERY_BATCH_SIZE);
+      const batchReservations = await Promise.all(
+        batchDates.map(date => reservationApi.getDoctorByDate(date)),
+      );
+
+      reservations.push(...batchReservations.flat());
+    }
+
+    const patientReservations = dedupeReservations(reservations.map(normalizeReservation))
+      .filter(reservation => String(reservation.patientId) === String(patientId))
+      .sort((a, b) => String(b.reservationDate).localeCompare(String(a.reservationDate)));
+
+    const surveyBundles = await Promise.all(patientReservations.map(async (reservation) => {
+      const [questions, answers] = await Promise.all([
+        surveyApi.getDoctorQuestions(reservation.reservationId).catch(() => []),
+        surveyApi.getDoctorAnswers(reservation.reservationId).catch(() => []),
+      ]);
+
+      return {
+        questions: (questions || []).map(normalizeQuestion),
+        answers: (answers || []).map(normalizeAnswer),
+      };
+    }));
+
+    return surveyBundles.reduce((summary, bundle, index) => {
+      const reservation = patientReservations[index];
+
+      summary.reservations.push({
+        ...reservation,
+        questions: bundle.questions,
+        answers: bundle.answers,
+      });
+      summary.pendingQuestions += bundle.questions.filter(question => question.status === 'PENDING').length;
+      summary.approvedQuestions += bundle.questions.filter(question => question.status === 'APPROVED').length;
+      summary.rejectedQuestions += bundle.questions.filter(question => question.status === 'REJECTED').length;
+      summary.totalAnswers += bundle.answers.length;
+      if (bundle.answers.length > 0) summary.submittedSurveys += 1;
+
+      return summary;
+    }, {
+      reservations: [],
+      pendingQuestions: 0,
+      approvedQuestions: 0,
+      rejectedQuestions: 0,
+      submittedSurveys: 0,
+      totalAnswers: 0,
+    });
+  }, [patientId], {
+    initialData: {
+      reservations: [],
+      pendingQuestions: 0,
+      approvedQuestions: 0,
+      rejectedQuestions: 0,
+      submittedSurveys: 0,
+      totalAnswers: 0,
+    },
+  });
 }
 
 export function usePatientReports(patientId) {

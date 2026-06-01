@@ -3,17 +3,28 @@ import { useParams } from 'react-router-dom';
 import BackToPatientButton from '../../components/BackToPatientButton';
 import Card from '../../components/Card';
 import { surveyApi } from '../../api/apiClient';
-import { toDateKey } from '../../api/adapters';
-import { useDoctorPatientProfile, useDoctorQuestions, useDoctorReservationsByDate } from '../../hooks/usePatientData';
+import { addDays, toDateKey } from '../../api/adapters';
+import { useDoctorPatientProfile, useDoctorQuestions, useDoctorReservationsByDateRange } from '../../hooks/usePatientData';
+
+const RESERVATION_LOOKBACK_DAYS = 30;
+const RESERVATION_LOOKAHEAD_DAYS = 90;
 
 export default function QuestionManagePage() {
   const { id } = useParams();
   const patientId = Number(id);
-  const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
+  const [selectedReservationId, setSelectedReservationId] = useState(null);
   const [activeTab, setActiveTab] = useState('PENDING');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { data: patient } = useDoctorPatientProfile(id);
-  const { data: reservations = [] } = useDoctorReservationsByDate(selectedDate);
-  const patientReservation = reservations.find(reservation => Number(reservation.patientId) === patientId);
+  const reservationStartDate = toDateKey(addDays(toDateKey(), -RESERVATION_LOOKBACK_DAYS));
+  const reservationEndDate = toDateKey(addDays(toDateKey(), RESERVATION_LOOKAHEAD_DAYS));
+  const { data: reservations = [] } = useDoctorReservationsByDateRange(reservationStartDate, reservationEndDate);
+  const patientReservations = useMemo(() => (
+    reservations
+      .filter(reservation => Number(reservation.patientId) === patientId)
+      .sort((a, b) => String(b.reservationDate).localeCompare(String(a.reservationDate)))
+  ), [patientId, reservations]);
+  const patientReservation = patientReservations.find(reservation => String(reservation.reservationId) === String(selectedReservationId)) || patientReservations[0];
   const reservationId = patientReservation?.reservationId;
   const { data: questions = [], reload } = useDoctorQuestions(reservationId);
 
@@ -27,18 +38,34 @@ export default function QuestionManagePage() {
     questions.filter(question => (question.status || 'PENDING') === activeTab)
   ), [questions, activeTab]);
 
-  const handleGenerateQuestion = async () => {
+  const handleGenerateQuestion = () => {
     if (!reservationId) {
-      alert('선택한 날짜에 해당 환자 예약이 없습니다.');
+      alert('질문을 생성할 예약 건이 없습니다.');
       return;
     }
 
+    setIsCreateModalOpen(true);
+  };
+
+  const handleAutoGenerate = async () => {
     try {
       await surveyApi.createQuestion(reservationId);
       await reload();
       setActiveTab('PENDING');
+      setIsCreateModalOpen(false);
     } catch (error) {
       alert(error.message || '질문 생성에 실패했습니다.');
+    }
+  };
+
+  const handleManualGenerate = async (payload) => {
+    try {
+      await surveyApi.createQuestion(reservationId, payload);
+      await reload();
+      setActiveTab('PENDING');
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      alert(error.message || '수동 질문 생성에 실패했습니다. 백엔드의 수동 질문 생성 API 지원 여부를 확인해 주세요.');
     }
   };
 
@@ -70,12 +97,6 @@ export default function QuestionManagePage() {
           </div>
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
             <button
               onClick={handleGenerateQuestion}
               className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95 md:w-auto"
@@ -96,6 +117,42 @@ export default function QuestionManagePage() {
               <InfoRow label="성별/나이" value={patient ? `${patient.sex} / ${patient.age}세` : '-'} />
               <InfoRow label="전화번호" value={patient?.phone || '-'} />
               <InfoRow label="예약번호" value={reservationId || '-'} />
+            </div>
+          </Card>
+
+          <Card className="border-none p-5 shadow-sm shrink-0">
+            <h3 className="mb-4 text-sm font-black text-gray-800">예약 건 선택</h3>
+            <div className="flex flex-col gap-2">
+              {patientReservations.map(reservation => {
+                const isActive = String(reservation.reservationId) === String(reservationId);
+
+                return (
+                  <button
+                    key={reservation.reservationId}
+                    type="button"
+                    onClick={() => setSelectedReservationId(reservation.reservationId)}
+                    className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                      isActive
+                        ? 'border-blue-300 bg-blue-50 shadow-sm'
+                        : 'border-slate-100 bg-slate-50 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-slate-900">예약 #{reservation.reservationId}</span>
+                      <span className="text-[10px] font-bold text-slate-400">{reservation.doctorName}</span>
+                    </div>
+                    <div className="mt-1 text-[11px] font-bold text-slate-500">
+                      {reservation.date} {reservation.time}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {patientReservations.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs font-bold text-slate-400">
+                  조회 범위 내 예약이 없습니다.
+                </div>
+              )}
             </div>
           </Card>
 
@@ -127,7 +184,7 @@ export default function QuestionManagePage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50/50">
               {!reservationId ? (
-                <EmptyState text="선택한 날짜에 해당 환자의 예약이 없습니다." />
+                <EmptyState text="질문을 관리할 예약 건을 선택할 수 없습니다." />
               ) : filteredQuestions.length === 0 ? (
                 <EmptyState text="해당하는 질문이 없습니다." />
               ) : (
@@ -192,6 +249,143 @@ export default function QuestionManagePage() {
             </div>
           </div>
         </main>
+      </div>
+
+      {isCreateModalOpen && (
+        <QuestionCreateModal
+          reservation={patientReservation}
+          onAutoGenerate={handleAutoGenerate}
+          onManualGenerate={handleManualGenerate}
+          onClose={() => setIsCreateModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuestionCreateModal({ reservation, onAutoGenerate, onManualGenerate, onClose }) {
+  const [mode, setMode] = useState(null);
+  const [type, setType] = useState('MULTIPLE_CHOICE');
+  const [question, setQuestion] = useState('');
+  const [optionsText, setOptionsText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAutoClick = async () => {
+    setIsSubmitting(true);
+    try {
+      await onAutoGenerate();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleManualSubmit = async (event) => {
+    event.preventDefault();
+    if (!question.trim()) return;
+
+    const options = optionsText
+      .split(',')
+      .map(option => option.trim())
+      .filter(Boolean);
+
+    setIsSubmitting(true);
+    await onManualGenerate({
+      question: question.trim(),
+      type,
+      options: type === 'MULTIPLE_CHOICE' ? JSON.stringify(options) : '[]',
+      questionReason: '의사가 수동으로 작성한 질문입니다.',
+    });
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="border-b border-slate-100 px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900">질문 생성하기</h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                예약 #{reservation?.reservationId} · {reservation?.date} {reservation?.time}
+              </p>
+            </div>
+            <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-xl font-black text-slate-400 hover:bg-slate-50 hover:text-slate-700">
+              X
+            </button>
+          </div>
+        </div>
+
+        {!mode ? (
+          <div className="grid gap-3 p-6 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={handleAutoClick}
+              disabled={isSubmitting}
+              className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-left transition-all hover:border-blue-300 hover:bg-blue-100 disabled:cursor-wait disabled:border-slate-100 disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              <div className="text-lg font-black text-blue-700">{isSubmitting ? '생성 중' : '자동'}</div>
+              <p className="mt-2 text-sm font-bold leading-relaxed text-blue-900/70">
+                누르면 바로 AI가 환자 기록을 참고해 질문을 생성합니다.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('MANUAL')}
+              disabled={isSubmitting}
+              className="rounded-2xl border border-slate-100 bg-slate-50 p-5 text-left transition-all hover:border-slate-300 hover:bg-slate-100"
+            >
+              <div className="text-lg font-black text-slate-800">수동</div>
+              <p className="mt-2 text-sm font-bold leading-relaxed text-slate-500">
+                질문 유형, 질문 내용, 선택지를 직접 입력합니다.
+              </p>
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleManualSubmit} className="space-y-4 p-6">
+            <div>
+              <label className="mb-2 block text-sm font-bold text-slate-700">질문 유형</label>
+              <select
+                value={type}
+                onChange={(event) => setType(event.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="MULTIPLE_CHOICE">객관식</option>
+                <option value="SHORT_ANSWER">주관식</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-bold text-slate-700">질문</label>
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                className="h-28 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                placeholder="환자에게 물어볼 질문을 입력하세요."
+                required
+              />
+            </div>
+            {type === 'MULTIPLE_CHOICE' && (
+              <div>
+                <label className="mb-2 block text-sm font-bold text-slate-700">선택지</label>
+                <input
+                  value={optionsText}
+                  onChange={(event) => setOptionsText(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="예: 없음, 조금 있음, 심함"
+                />
+                <p className="mt-1 text-xs font-bold text-slate-400">쉼표로 구분해 입력합니다.</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setMode(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-500 hover:bg-slate-50">
+                이전
+              </button>
+              <button type="submit" disabled={!question.trim() || isSubmitting} className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700 disabled:bg-slate-300">
+                {isSubmitting ? '생성 중' : '수동 생성'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

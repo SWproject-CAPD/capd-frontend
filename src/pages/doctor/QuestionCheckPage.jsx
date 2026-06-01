@@ -2,16 +2,26 @@ import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BackToPatientButton from '../../components/BackToPatientButton';
 import Card from '../../components/Card';
-import { toDateKey } from '../../api/adapters';
-import { useDoctorAnswers, useDoctorPatientProfile, useDoctorReservationsByDate } from '../../hooks/usePatientData';
+import { addDays, toDateKey } from '../../api/adapters';
+import { useDoctorAnswers, useDoctorPatientProfile, useDoctorReservationsByDateRange } from '../../hooks/usePatientData';
+
+const RESERVATION_LOOKBACK_DAYS = 30;
+const RESERVATION_LOOKAHEAD_DAYS = 90;
 
 export default function QuestionCheckPage() {
   const { id } = useParams();
   const patientId = Number(id);
-  const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
+  const [selectedReservationId, setSelectedReservationId] = useState(null);
   const { data: patient } = useDoctorPatientProfile(id);
-  const { data: reservations = [] } = useDoctorReservationsByDate(selectedDate);
-  const patientReservation = reservations.find(reservation => Number(reservation.patientId) === patientId);
+  const reservationStartDate = toDateKey(addDays(toDateKey(), -RESERVATION_LOOKBACK_DAYS));
+  const reservationEndDate = toDateKey(addDays(toDateKey(), RESERVATION_LOOKAHEAD_DAYS));
+  const { data: reservations = [] } = useDoctorReservationsByDateRange(reservationStartDate, reservationEndDate);
+  const patientReservations = useMemo(() => (
+    reservations
+      .filter(reservation => Number(reservation.patientId) === patientId)
+      .sort((a, b) => String(b.reservationDate).localeCompare(String(a.reservationDate)))
+  ), [patientId, reservations]);
+  const patientReservation = patientReservations.find(reservation => String(reservation.reservationId) === String(selectedReservationId)) || patientReservations[0];
   const reservationId = patientReservation?.reservationId;
   const { data: answers = [] } = useDoctorAnswers(reservationId);
 
@@ -25,23 +35,17 @@ export default function QuestionCheckPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="flex items-center gap-3 text-2xl font-black text-gray-900">
-              <span className="rounded-xl bg-blue-100 p-2 text-xl text-blue-600">✓</span>
+              <span className="rounded-xl bg-blue-100 p-2 text-xl text-blue-600">답</span>
               설문 응답 확인
             </h1>
             <p className="mt-2 text-sm font-medium text-gray-500">
-              <span className="font-bold text-blue-600">{patient?.name || '환자'}</span> 환자의 예약별 설문 답변입니다.
+              <span className="font-bold text-blue-600">{patient?.name || '환자'}</span> 환자의 예약별 설문 응답입니다.
             </p>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-3 md:w-auto">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-              className="col-span-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
+          <div className="grid w-full grid-cols-2 gap-3 md:w-auto">
             <HeaderStat label="예약번호" value={reservationId || '-'} color="blue" />
-            <HeaderStat label="전체 답변" value={`${totalSurveyCount}개`} color="emerald" />
+            <HeaderStat label="전체 응답" value={`${totalSurveyCount}개`} color="emerald" />
           </div>
         </div>
       </div>
@@ -60,25 +64,39 @@ export default function QuestionCheckPage() {
           </Card>
 
           <Card className="shrink-0 border-none p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-black text-gray-800">조회 예약</h3>
-            {patientReservation ? (
-              <button
-                type="button"
-                className="w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-left shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-black text-gray-900">{patientReservation.reservationId}</span>
-                  <span className="text-[10px] font-bold text-gray-400">{answers.length}답변</span>
+            <h3 className="mb-4 text-sm font-black text-gray-800">예약 건 선택</h3>
+            <div className="flex flex-col gap-2">
+              {patientReservations.map(reservation => {
+                const isActive = String(reservation.reservationId) === String(reservationId);
+
+                return (
+                  <button
+                    key={reservation.reservationId}
+                    type="button"
+                    onClick={() => setSelectedReservationId(reservation.reservationId)}
+                    className={`rounded-xl border px-4 py-3 text-left shadow-sm transition-all ${
+                      isActive
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-slate-100 bg-slate-50 hover:border-blue-200 hover:bg-blue-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-gray-900">예약 #{reservation.reservationId}</span>
+                      {isActive && <span className="text-[10px] font-bold text-blue-500">선택됨</span>}
+                    </div>
+                    <div className="mt-1 text-[11px] font-bold text-gray-500">
+                      {reservation.date} {reservation.time}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {patientReservations.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs font-bold text-slate-400">
+                  조회 범위 안에 예약이 없습니다.
                 </div>
-                <div className="mt-1 text-[11px] font-bold text-gray-500">
-                  {patientReservation.date} {patientReservation.time}
-                </div>
-              </button>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs font-bold text-slate-400">
-                선택한 날짜에 예약이 없습니다.
-              </div>
-            )}
+              )}
+            </div>
           </Card>
         </aside>
 
@@ -95,9 +113,9 @@ export default function QuestionCheckPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/50 p-4 custom-scrollbar md:p-6">
               {!reservationId ? (
-                <EmptyState text="선택한 날짜에 해당 환자의 예약이 없습니다." />
+                <EmptyState text="설문 응답을 확인할 예약 건이 없습니다." />
               ) : answers.length === 0 ? (
-                <EmptyState text="제출된 설문 답변이 없습니다." />
+                <EmptyState text="제출된 설문 응답이 없습니다." />
               ) : (
                 <div className="flex flex-col gap-4">
                   <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -106,10 +124,10 @@ export default function QuestionCheckPage() {
                         <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black text-white">
                           {patientReservation.reservationId}
                         </span>
-                        <span className="text-sm font-black text-gray-900">설문 답변</span>
+                        <span className="text-sm font-black text-gray-900">설문 응답</span>
                       </div>
                       <div className="mt-2 text-xs font-bold text-gray-400">
-                        {patientReservation.date} {patientReservation.time} · 답변 {answers.length}개
+                        {patientReservation.date} {patientReservation.time} · 응답 {answers.length}개
                       </div>
                     </div>
 
@@ -157,9 +175,9 @@ function AnswerCard({ item, index }) {
 
 function InfoRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between border-b border-gray-100 py-2.5 text-sm last:border-b-0 last:pb-0">
-      <span className="font-bold text-gray-400">{label}</span>
-      <span className="font-black text-gray-800">{value}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-gray-100 py-2.5 text-sm last:border-b-0 last:pb-0">
+      <span className="shrink-0 font-bold text-gray-400">{label}</span>
+      <span className="break-all text-right font-black text-gray-800">{value}</span>
     </div>
   );
 }
@@ -186,7 +204,7 @@ function HeaderStat({ label, value, color }) {
 function EmptyState({ text }) {
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="mb-3 text-4xl">📭</div>
+      <div className="mb-3 text-4xl">·</div>
       <h3 className="text-lg font-bold text-gray-800">{text}</h3>
     </div>
   );

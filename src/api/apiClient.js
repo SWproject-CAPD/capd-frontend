@@ -256,8 +256,9 @@ export const reservationApi = {
 
 export const surveyApi = {
   getDoctorQuestions: (reservationId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.doctorQuestions(reservationId) }),
-  createQuestion: (reservationId) => apiRequest({ method: 'post', url: ENDPOINTS.surveys.doctorQuestions(reservationId) }),
+  createQuestion: (reservationId, payload) => apiRequest({ method: 'post', url: ENDPOINTS.surveys.doctorQuestions(reservationId), data: payload }),
   getDoctorAnswers: (reservationId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.answers(reservationId) }),
+  getPatientAnswers: (reservationId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.answers(reservationId) }),
   submitAnswers: (reservationId, payload) => apiRequest({ method: 'post', url: ENDPOINTS.surveys.answers(reservationId), data: payload }),
   explainQuestion: (questionId) => apiRequest({ method: 'post', url: ENDPOINTS.surveys.explain(questionId) }),
   approveQuestion: (questionId) => apiRequest({ method: 'patch', url: ENDPOINTS.surveys.approve(questionId) }),
