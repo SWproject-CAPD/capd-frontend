@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { capdApi } from '../../api/apiClient';
 import { toCapdPayload, toDateKey, toKoreanDate } from '../../api/adapters';
-import { usePatientTempCapd } from '../../hooks/usePatientData';
+
+const CAPD_CONFLICT_STATUS = 409;
+const CAPD_CONFLICT_MESSAGE = '오늘 기록은 이미 제출되었거나 서버에서 수정할 수 없는 상태입니다. 기록 목록에서 확인해 주세요.';
+const LOCAL_CAPD_DRAFT_PREFIX = 'capd_local_draft:';
 
 const createEmptyDailyInfo = () => ({
   turbidity: '맑음',
@@ -14,16 +17,40 @@ const createEmptyDailyInfo = () => ({
   memo: '',
 });
 
+const getLocalDraftKey = (date) => `${LOCAL_CAPD_DRAFT_PREFIX}${date}`;
+
+const readLocalDraft = (date) => {
+  try {
+    const rawDraft = localStorage.getItem(getLocalDraftKey(date));
+    return rawDraft ? JSON.parse(rawDraft) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveLocalDraft = (date, dailyInfo, exchanges) => {
+  localStorage.setItem(getLocalDraftKey(date), JSON.stringify({
+    dailyInfo,
+    exchanges,
+    updatedAt: new Date().toISOString(),
+  }));
+};
+
+const clearLocalDraft = (date) => {
+  localStorage.removeItem(getLocalDraftKey(date));
+};
+
 export default function DailyRecordPage() {
   const navigate = useNavigate();
   const today = new Date();
   const formattedDate = toDateKey(today);
   const displayDate = toKoreanDate(today);
+  const localDraft = readLocalDraft(formattedDate);
 
-  const { data: tempRecord, isLoading } = usePatientTempCapd(formattedDate);
-  const [dailyInfo, setDailyInfo] = useState(createEmptyDailyInfo);
-  const [exchanges, setExchanges] = useState([]);
-  const [autoSaveStatus, setAutoSaveStatus] = useState('자동 저장 대기');
+  const [dailyInfo, setDailyInfo] = useState(() => localDraft?.dailyInfo || createEmptyDailyInfo());
+  const [exchanges, setExchanges] = useState(() => localDraft?.exchanges || []);
+  const [autoSaveStatus, setAutoSaveStatus] = useState(localDraft ? '임시 저장 불러옴' : '자동 저장 대기');
+  const [isTempSaveBlocked, setIsTempSaveBlocked] = useState(false);
   const [currentExchange, setCurrentExchange] = useState({
     time: '08:00',
     concentration: '1.5',
@@ -31,37 +58,40 @@ export default function DailyRecordPage() {
     drained: '',
   });
 
-  useEffect(() => {
-    if (!tempRecord) return;
+  const saveTempRecord = (infoData = dailyInfo, exchangeList = exchanges) => {
+    if (isTempSaveBlocked) return false;
 
-    const timer = window.setTimeout(() => {
-      setDailyInfo({
-        turbidity: tempRecord.turbidity || '맑음',
-        urineCount: tempRecord.urineCount || '',
-        weight: tempRecord.weight || '',
-        bpSystolic: tempRecord.bpSystolic || '',
-        bpDiastolic: tempRecord.bpDiastolic || '',
-        fbs: tempRecord.fbs || '',
-        memo: tempRecord.memo || '',
-      });
-      setExchanges(tempRecord.exchanges || []);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [tempRecord]);
-
-  const saveTempRecord = async (infoData = dailyInfo, exchangeList = exchanges) => {
     setAutoSaveStatus('자동 저장 중');
 
     try {
-      await capdApi.saveTemp(toCapdPayload({
-        date: formattedDate,
-        dailyInfo: infoData,
-        exchanges: exchangeList,
-      }));
-      setAutoSaveStatus('자동 저장 완료');
+      // 서버 임시저장은 실제 TEMP 기록을 만들어 최종 제출과 충돌할 수 있어, 입력 중에는 브라우저에만 보관합니다.
+      saveLocalDraft(formattedDate, infoData, exchangeList);
+      setAutoSaveStatus('임시 저장 완료');
+      return true;
     } catch (error) {
       setAutoSaveStatus(error.message || '자동 저장 실패');
+      return false;
+    }
+  };
+
+  const submitRecord = async (payload) => {
+    try {
+      return await capdApi.submit(payload);
+    } catch (submitError) {
+      if (submitError.status !== CAPD_CONFLICT_STATUS) throw submitError;
+
+      try {
+        const existingRecord = await capdApi.getMineByDate(formattedDate);
+
+        if (existingRecord?.capdId && String(existingRecord.status || '').toUpperCase() === 'TEMP') {
+          await capdApi.deleteCommon(existingRecord.capdId);
+          return await capdApi.submit(payload);
+        }
+      } catch {
+        // 기존 TEMP 확인/삭제에 실패하면 원래 제출 오류를 사용자에게 보여줍니다.
+      }
+
+      throw submitError;
     }
   };
 
@@ -127,6 +157,12 @@ export default function DailyRecordPage() {
   };
 
   const handleSubmitAll = async () => {
+    if (isTempSaveBlocked) {
+      alert(CAPD_CONFLICT_MESSAGE);
+      navigate('/patient/record_list');
+      return;
+    }
+
     if (exchanges.length < 4) {
       const confirmUnder = window.confirm(`현재 투석 횟수가 ${exchanges.length}회로 기준(4회) 미달입니다. 그래도 제출하시겠습니까?`);
       if (!confirmUnder) return;
@@ -139,15 +175,25 @@ export default function DailyRecordPage() {
     if (!confirmFinalSubmit) return;
 
     try {
-      await capdApi.submit(toCapdPayload({
+      await submitRecord(toCapdPayload({
         date: formattedDate,
         dailyInfo,
         exchanges,
       }));
 
+      clearLocalDraft(formattedDate);
       alert('오늘 하루의 기록이 성공적으로 제출되었습니다!');
       navigate('/patient/record_list');
     } catch (error) {
+      if (error.status === CAPD_CONFLICT_STATUS) {
+        setIsTempSaveBlocked(true);
+        setAutoSaveStatus('이미 제출됨');
+        clearLocalDraft(formattedDate);
+        alert(CAPD_CONFLICT_MESSAGE);
+        navigate('/patient/record_list');
+        return;
+      }
+
       alert(error.message || '최종 제출에 실패했습니다.');
     }
   };
@@ -160,7 +206,7 @@ export default function DailyRecordPage() {
         </div>
         <h1 className="text-3xl font-black text-gray-900">투석 기록 입력</h1>
         <p className="text-gray-500 mt-2">
-          {isLoading ? '저장된 기록을 불러오는 중입니다.' : '일일 건강 수치와 매 회차 투석 기록을 입력하세요.'}
+          일일 건강 수치와 매 회차 투석 기록을 입력하세요.
         </p>
       </div>
 

@@ -30,36 +30,37 @@ export default function PatientLayout() {
     <div className="h-screen flex flex-col bg-slate-50 font-sans text-gray-900 overflow-hidden relative pb-16 md:pb-0">
       
       {/* 상단 헤더 */}
-      <header className="h-16 bg-white border-b border-gray-200 px-4 md:px-6 flex justify-between items-center z-30 shrink-0 shadow-sm">
-        <Link to="/patient" className="flex items-center gap-2 md:gap-3 group">
+      <header className="h-16 bg-white border-b border-gray-200 px-2 sm:px-4 md:px-6 flex justify-between items-center z-30 shrink-0 shadow-sm">
+        <Link to="/patient" className="flex min-w-0 flex-1 items-center gap-2 md:gap-3 group">
           <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-lg md:text-xl shadow-md group-hover:scale-105 transition-transform">
             C
           </div>
-          <div className="text-lg md:text-xl font-bold tracking-tight text-gray-800">
-            CAPD Care <span className="hidden md:inline font-medium text-blue-600 text-base ml-1">환자 포털</span>
+          <div className="min-w-0 truncate text-base font-bold tracking-tight text-gray-800 sm:text-lg md:text-xl">
+            CAPD <span className="hidden sm:inline">Care</span>
+            <span className="hidden md:inline font-medium text-blue-600 text-base ml-1">환자 포털</span>
           </div>
         </Link>
         
-        <div className="flex items-center gap-3 md:gap-5">
-          <div className="flex items-center gap-1.5 md:gap-2 bg-slate-50 px-2.5 py-1.5 md:px-3 rounded-full border border-gray-100">
-            <span className="text-base md:text-lg">😊</span>
-            <span className="font-semibold text-xs md:text-sm text-slate-700">{user?.name || '김환자'}님</span>
+        <div className="-ml-1 flex shrink-0 items-center gap-1 sm:gap-2 md:gap-5">
+          <div className="flex max-w-22 items-center gap-1 rounded-full border border-gray-100 bg-slate-50 px-1.5 py-1.5 sm:max-w-none sm:gap-1.5 sm:px-2.5 md:gap-2 md:px-3">
+            <span className="text-sm md:text-lg">😊</span>
+            <span className="truncate text-[11px] font-semibold text-slate-700 sm:text-xs md:text-sm">{user?.name || '김환자'}님</span>
           </div>
           <div className="h-4 md:h-5 w-px bg-gray-300"></div>
 
           <button
             type="button"
             onClick={() => navigate('/patient/mypage')}
-            className="hidden sm:flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs md:text-sm font-bold text-blue-600 shadow-sm transition-all hover:bg-blue-100 hover:text-blue-700 active:scale-95"
+            className="flex items-center gap-0.5 rounded-full border border-blue-100 bg-blue-50 px-2 py-1.5 text-xs md:text-sm font-bold text-blue-600 shadow-sm transition-all hover:bg-blue-100 hover:text-blue-700 active:scale-95 sm:gap-1.5 sm:px-3"
           >
-          <span className="text-sm">👤</span>
+            <span className="text-sm">👤</span>
             내정보
           </button>
           <div className="h-4 md:h-5 w-px bg-gray-300"></div>
           
           <button 
             onClick={handleLogout} 
-            className="text-xs md:text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
+            className="whitespace-nowrap text-xs md:text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
           >
             로그아웃
           </button>

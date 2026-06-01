@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../../store/useAppStore';
+import PasswordChangeModal from '../../components/PasswordChangeModal';
 import { useDoctorMe, useDoctorPatientProfiles, useDoctorPatients } from '../../hooks/usePatientData';
 
 export default function DoctorMyPage() {
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAppStore();
   const { data: doctor } = useDoctorMe();
@@ -57,16 +59,20 @@ export default function DoctorMyPage() {
               <div>
                 <div className="mb-3 text-xs font-black text-slate-400">기본 정보</div>
                 <div className="space-y-3">
-                  <ProfileLine label="의사번호" value={doctor?.doctorId || '-'} dark />
-                  <ProfileLine label="사용자번호" value={doctor?.userId || '-'} dark />
-                  <ProfileLine label="권한" value={doctor?.role || 'DOCTOR'} dark />
                   <ProfileLine label="가입일" value={doctor?.createdAt ? doctor.createdAt.slice(0, 10) : '-'} dark />
+                  <ProfileLine label="이메일" value={doctor?.email || '-'} dark />
+                  <ProfileLine label="전화번호" value={doctor?.phone || '-'} dark />
                 </div>
               </div>
 
               <div className="grid content-end gap-3">
-                <ContactBox label="이메일" value={doctor?.email || '-'} />
-                <ContactBox label="전화번호" value={doctor?.phone || '-'} />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(true)}
+                  className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-blue-500"
+                >
+                  비밀번호 변경
+                </button>
               </div>
             </div>
           </div>
@@ -109,6 +115,10 @@ export default function DoctorMyPage() {
           </div>
         </main>
       </div>
+
+      {isPasswordModalOpen && (
+        <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />
+      )}
     </div>
   );
 }
@@ -143,18 +153,9 @@ function DarkStat({ label, value }) {
 
 function ProfileLine({ label, value, dark = false }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-sm">
+    <div className="flex items-start justify-between gap-3 text-sm">
       <span className={dark ? 'font-bold text-slate-400' : 'font-bold text-slate-400'}>{label}</span>
-      <span className={dark ? 'font-black text-slate-100' : 'font-black text-slate-800'}>{value}</span>
-    </div>
-  );
-}
-
-function ContactBox({ label, value }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3">
-      <div className="text-[10px] font-black text-blue-300">{label}</div>
-      <div className="mt-1 truncate text-sm font-black text-white">{value}</div>
+      <span className={dark ? 'break-all text-right font-black text-slate-100' : 'break-all text-right font-black text-slate-800'}>{value}</span>
     </div>
   );
 }
@@ -189,7 +190,7 @@ function PatientMetric({ label, value, isLoading }) {
   return (
     <div className="rounded-xl bg-white px-3 py-2">
       <div className="text-[10px] font-black text-slate-400">{label}</div>
-      <div className="mt-0.5 truncate text-xs font-black text-slate-700">{displayValue || '-'}</div>
+      <div className="mt-0.5 break-all text-xs font-black leading-relaxed text-slate-700">{displayValue || '-'}</div>
     </div>
   );
 }

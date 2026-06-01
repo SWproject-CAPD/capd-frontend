@@ -192,6 +192,20 @@ export const authApi = {
   }),
 };
 
+export const userApi = {
+  resetPassword: (payload) => apiRequest({
+    method: 'post',
+    url: ENDPOINTS.users.passwordReset,
+    data: payload,
+    skipAuthRefresh: true,
+  }),
+  changePassword: (payload) => apiRequest({
+    method: 'put',
+    url: ENDPOINTS.users.password,
+    data: payload,
+  }),
+};
+
 export const patientApi = {
   signUp: (payload) => apiRequest({ method: 'post', url: ENDPOINTS.patients.root, data: payload }),
   getMe: () => apiRequest({ method: 'get', url: ENDPOINTS.patients.me }),

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useAppStore from '../../store/useAppStore';
+import PasswordChangeModal from '../../components/PasswordChangeModal';
 import { getLatestRecord, usePatientCapdRecords, usePatientMe, usePatientReservations } from '../../hooks/usePatientData';
 import { getUpcomingReservation } from '../../hooks/usePatientData';
 
 export default function PatientMyPage() {
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const { user } = useAppStore();
   const { data: patient } = usePatientMe();
   const { data: records = [] } = usePatientCapdRecords();
@@ -46,16 +48,26 @@ export default function PatientMyPage() {
       </section>
 
       <section className="rounded-4xl border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-        <div className="mb-5 flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 font-black text-blue-600">
-            i
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 font-black text-blue-600">
+              i
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-900">내 정보</h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                병원에 등록된 환자 기본 정보입니다.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-black text-slate-900">내 정보</h2>
-            <p className="mt-1 text-sm font-medium text-slate-500">
-              병원에 등록된 환자 기본 정보입니다.
-            </p>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsPasswordModalOpen(true)}
+            className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            비밀번호 변경
+          </button>
         </div>
 
         <div className="divide-y divide-slate-100">
@@ -69,6 +81,10 @@ export default function PatientMyPage() {
           <InfoRow label="다음 예약" value={nextReservation ? `${nextReservation.date} ${nextReservation.time}` : '-'} />
         </div>
       </section>
+
+      {isPasswordModalOpen && (
+        <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />
+      )}
     </div>
   );
 }

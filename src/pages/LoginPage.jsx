@@ -4,7 +4,7 @@ import useAppStore from '../store/useAppStore';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { authApi } from '../api/apiClient';
+import { authApi, userApi } from '../api/apiClient';
 
 export default function LoginPage() {
   const [isDoctor, setIsDoctor] = useState(false);
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
   const { setSession } = useAppStore();
   const navigate = useNavigate();
 
@@ -75,6 +76,15 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsPasswordResetOpen(true)}
+              className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-700"
+            >
+              비밀번호 찾기
+            </button>
+          </div>
           {error && (
             <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
               {error}
@@ -97,6 +107,84 @@ export default function LoginPage() {
           </div>
         </div>
       </Card>
+
+      {isPasswordResetOpen && (
+        <PasswordResetModal onClose={() => setIsPasswordResetOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function PasswordResetModal({ onClose }) {
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    setIsSubmitting(true);
+
+    try {
+      await userApi.resetPassword({ email: email.trim() });
+      alert('입력한 이메일로 임시 비밀번호가 발송되었습니다.');
+      onClose();
+    } catch (resetError) {
+      setError(resetError.message || '비밀번호 찾기에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+      <form onSubmit={handleSubmit} className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="border-b border-slate-100 px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900">비밀번호 찾기</h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                가입한 이메일로 임시 비밀번호를 발송합니다.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full px-3 py-1.5 text-xl font-black text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700"
+            >
+              X
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <Input
+            label="이메일"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="example@mail.com"
+            required
+          />
+
+          {error && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 bg-slate-50 px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            취소
+          </Button>
+          <Button type="submit" disabled={!email.trim() || isSubmitting} className="flex-1">
+            {isSubmitting ? '발송 중' : '임시 비밀번호 발송'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

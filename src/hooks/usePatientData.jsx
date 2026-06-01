@@ -25,6 +25,7 @@ import {
 const DOCTOR_RESERVATION_LOOKBACK_DAYS = 30;
 const DOCTOR_RESERVATION_LOOKAHEAD_DAYS = 0;
 const RESERVATION_DATE_QUERY_BATCH_SIZE = 20;
+const pendingTempCapdRequests = new Map();
 
 export function usePatientMe() {
   return useAsyncData(async () => normalizePatient(await patientApi.getMe()), []);
@@ -44,8 +45,22 @@ export function usePatientCapdRecords() {
 export function usePatientTempCapd(date) {
   return useAsyncData(async () => {
     if (!date) return null;
-    const record = await capdApi.getTemp(date);
-    return record ? normalizeCapd(record) : null;
+
+    if (!pendingTempCapdRequests.has(date)) {
+      const request = capdApi.getTemp(date)
+        .then(record => (record ? normalizeCapd(record) : null))
+        .catch((error) => {
+          if (error.status === 404) return null;
+          throw error;
+        })
+        .finally(() => {
+          pendingTempCapdRequests.delete(date);
+        });
+
+      pendingTempCapdRequests.set(date, request);
+    }
+
+    return pendingTempCapdRequests.get(date);
   }, [date], { initialData: null });
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { chatApi } from '../api/apiClient';
 import { normalizeChatMessagePair } from '../api/adapters';
 
@@ -25,6 +25,8 @@ export default function useAiAgent({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  const hasLoadedHistoryRef = useRef(!autoLoad);
+  const shouldJumpToLatestRef = useRef(true);
 
   const loadHistory = useCallback(async () => {
     if (!autoLoad) return [];
@@ -39,6 +41,7 @@ export default function useAiAgent({
       const normalized = (history || []).flatMap(normalizeChatMessagePair).filter(message => message.text);
 
       if (normalized.length > 0) {
+        shouldJumpToLatestRef.current = true;
         setMessages(normalized);
       }
 
@@ -47,6 +50,7 @@ export default function useAiAgent({
       setError(historyError);
       return [];
     } finally {
+      hasLoadedHistoryRef.current = true;
       setIsLoading(false);
     }
   }, [autoLoad, role]);
@@ -55,9 +59,15 @@ export default function useAiAgent({
     loadHistory();
   }, [loadHistory]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useLayoutEffect(() => {
+    if (autoLoad && !hasLoadedHistoryRef.current) return;
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: shouldJumpToLatestRef.current ? 'auto' : 'smooth',
+      block: 'end',
+    });
+    shouldJumpToLatestRef.current = false;
+  }, [autoLoad, messages]);
 
   const sendMessage = useCallback(async (event) => {
     event?.preventDefault?.();

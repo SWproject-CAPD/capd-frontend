@@ -14,6 +14,10 @@ export const ENDPOINTS = {
     doctorTokens: '/api/auths/doctors/tokens',
     doctorTokenRefresh: '/api/auths/doctors/tokens/refresh',
   },
+  users: {
+    password: '/api/users/password',
+    passwordReset: '/api/users/password/reset',
+  },
   patients: {
     root: '/api/patients',
     me: '/api/patients/me',

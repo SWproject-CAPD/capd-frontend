@@ -8,11 +8,12 @@ export default function RecordLogsPage() {
   const { data, isLoading } = useDoctorPatientBundle(id);
   const patient = data.patient;
   const history = data.records;
-  const [openDates, setOpenDates] = useState([]);
+  const [openDateState, setOpenDateState] = useState({ patientId: null, dates: null });
   const [calendarDate, setCalendarDate] = useState(new Date());
 
   const latestDate = history[0]?.date;
-  const displayOpenDates = openDates.length > 0 ? openDates : latestDate ? [latestDate] : [];
+  const openDates = openDateState.patientId === id ? openDateState.dates : null;
+  const displayOpenDates = openDates ?? (latestDate ? [latestDate] : []);
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -24,14 +25,30 @@ export default function RecordLogsPage() {
   }, [history]);
 
   const toggleAccordion = (dateStr) => {
-    setOpenDates(prev => (
-      displayOpenDates.includes(dateStr) ? prev.filter(date => date !== dateStr) : [...displayOpenDates, dateStr]
-    ));
+    setOpenDateState(prev => {
+      const currentDates = prev.patientId === id ? prev.dates : null;
+      const currentOpenDates = currentDates ?? (latestDate ? [latestDate] : []);
+
+      return {
+        patientId: id,
+        dates: currentOpenDates.includes(dateStr)
+          ? currentOpenDates.filter(date => date !== dateStr)
+          : [...currentOpenDates, dateStr],
+      };
+    });
   };
 
   const handleDateClick = (dateStr) => {
     if (!displayOpenDates.includes(dateStr)) {
-      setOpenDates(prev => [...prev, dateStr]);
+      setOpenDateState(prev => {
+        const currentDates = prev.patientId === id ? prev.dates : null;
+        const currentOpenDates = currentDates ?? (latestDate ? [latestDate] : []);
+
+        return {
+          patientId: id,
+          dates: [...currentOpenDates, dateStr],
+        };
+      });
     }
     setTimeout(() => {
       document.getElementById(`record-${dateStr}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -100,9 +117,7 @@ export default function RecordLogsPage() {
           </div>
 
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-xs text-gray-500 font-medium">
-            <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span>기록 있음</div>
-            <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-red-500"></span>주의/이상치 발생</div>
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>정상 수치</div>
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span>기록 있음</div>
           </div>
         </div>
 
@@ -133,11 +148,6 @@ export default function RecordLogsPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                      {isWarning && (
-                        <span className="hidden md:flex items-center gap-1 text-[10px] font-bold bg-red-50 text-red-600 px-2 py-1 rounded">
-                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> 확인 필요
-                        </span>
-                      )}
                       <svg className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
