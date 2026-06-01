@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Button from './Button';
-import Input from './Input';
+import PasswordInput from './PasswordInput';
 import { userApi } from '../api/apiClient';
 
 const PASSWORD_GUIDE = '영문, 숫자, 특수문자를 포함해 8~20자로 입력해 주세요.';
@@ -63,24 +63,21 @@ export default function PasswordChangeModal({ onClose }) {
         </div>
 
         <div className="space-y-4 px-6 py-5">
-          <Input
+          <PasswordInput
             label="현재 비밀번호"
-            type="password"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             required
           />
-          <Input
+          <PasswordInput
             label="새 비밀번호"
-            type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             placeholder={PASSWORD_GUIDE}
             required
           />
-          <Input
+          <PasswordInput
             label="새 비밀번호 확인"
-            type="password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             required

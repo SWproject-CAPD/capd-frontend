@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
 import Card from '../components/Card';
 import Input from '../components/Input';
+import PasswordInput from '../components/PasswordInput';
 import Button from '../components/Button';
 import { authApi, userApi } from '../api/apiClient';
 
@@ -68,9 +69,8 @@ export default function LoginPage() {
             onChange={(e) => setId(e.target.value)}
             required
           />
-          <Input
+          <PasswordInput
             label="비밀번호"
-            type="password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
