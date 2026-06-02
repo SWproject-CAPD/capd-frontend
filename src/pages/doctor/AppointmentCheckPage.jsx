@@ -152,7 +152,7 @@ export default function AppointmentCheckPage() {
                 <th className="w-48 px-4 py-3">환자</th>
                 <th className="w-40 px-4 py-3">전화번호</th>
                 <th className="px-4 py-3">예약 유형</th>
-                <th className="w-24 px-4 py-3 text-center">상태</th>
+                <th className="w-32 px-4 py-3 text-center">상태</th>
                 <th className="w-32 px-4 py-3 text-center">작업</th>
               </tr>
             </thead>
@@ -174,7 +174,6 @@ export default function AppointmentCheckPage() {
                       >
                         {appointment.patientName} 환자
                       </button>
-                      <div className="mt-0.5 text-[11px] font-bold text-slate-400">{appointment.patientId}</div>
                     </td>
                     <td className="px-4 py-2 text-sm font-bold text-slate-500">
                       {appointment.phone}
@@ -185,7 +184,7 @@ export default function AppointmentCheckPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <span className={`rounded-full px-3 py-1 text-xs font-black ${status.className}`}>
+                      <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-black ${status.className}`}>
                         {status.label}
                       </span>
                     </td>

@@ -4,7 +4,7 @@ import { surveyApi } from '../../api/apiClient';
 import { getUpcomingReservation, usePatientAnswers, usePatientQuestions, usePatientReservations } from '../../hooks/usePatientData';
 
 const SURVEY_DEADLINE_MESSAGE = '예약 전날까지만 작성 가능합니다.';
-const SUBMITTED_SURVEY_MESSAGE = '이미 제출한 설문입니다. 제출한 답변을 확인할 수 있습니다.';
+const SUBMITTED_SURVEY_MESSAGE = '이미 제출한 설문입니다. 아래에서 제출했던 답변을 확인할 수 있습니다.';
 
 export default function HealthSurveyPage() {
   const navigate = useNavigate();
@@ -30,6 +30,21 @@ export default function HealthSurveyPage() {
 
   const activeReservationKey = String(activeReservation?.reservationId || '');
   const draftAnswers = answersByReservationId[activeReservationKey] || {};
+  const questionAnswerMap = useMemo(() => (
+    surveyQuestions.reduce((acc, question) => {
+      const submittedValue = question.answer || '';
+
+      if ((question.answered || submittedValue) && question.questionId) {
+        acc[String(question.questionId)] = submittedValue;
+      }
+
+      if ((question.answered || submittedValue) && question.text) {
+        acc[`question:${question.text}`] = submittedValue;
+      }
+
+      return acc;
+    }, {})
+  ), [surveyQuestions]);
   const submittedAnswerMap = useMemo(() => (
     submittedAnswers.reduce((acc, answer) => {
       const submittedValue = answer.answer || '';
@@ -38,9 +53,9 @@ export default function HealthSurveyPage() {
       if (answer.question) acc[`question:${answer.question}`] = submittedValue;
 
       return acc;
-    }, {})
-  ), [submittedAnswers]);
-  const hasSubmittedSurvey = submittedAnswers.length > 0;
+    }, { ...questionAnswerMap })
+  ), [questionAnswerMap, submittedAnswers]);
+  const hasSubmittedSurvey = submittedAnswers.length > 0 || surveyQuestions.some(question => question.answered || question.answer);
   const visibleAnswers = hasSubmittedSurvey ? submittedAnswerMap : draftAnswers;
   const canWriteSurvey = isBeforeAppointmentDate(activeReservation?.date);
   const isSurveyDisabled = !canWriteSurvey || hasSubmittedSurvey;
@@ -184,7 +199,7 @@ export default function HealthSurveyPage() {
         </div>
       </section>
 
-      {!canWriteSurvey ? (
+      {!canWriteSurvey && !hasSubmittedSurvey ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-black text-slate-500">
             !
@@ -194,18 +209,27 @@ export default function HealthSurveyPage() {
             이 예약 건의 설문 작성 기간이 지나 더 이상 답변할 수 없습니다.
           </p>
         </section>
-      ) : hasSubmittedSurvey ? (
-        <section className="rounded-3xl border border-emerald-100 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-2xl font-black text-emerald-700">
-            ✓
-          </div>
-          <h2 className="text-2xl font-black text-slate-900">이미 답변한 설문입니다</h2>
-          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-500">
-            이 예약 건의 설문은 이미 제출되어 다시 작성할 수 없습니다.
-          </p>
-        </section>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4" title={isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
+        >
+          {hasSubmittedSurvey && (
+            <section className="rounded-3xl border border-emerald-100 bg-emerald-50 px-5 py-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-lg font-black text-emerald-700">
+                  ✓
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900">이미 답변한 설문입니다</h2>
+                  <p className="mt-1 text-sm font-bold leading-relaxed text-emerald-700">
+                    제출했던 답변을 아래에서 확인할 수 있습니다. 이미 제출한 설문은 다시 수정할 수 없습니다.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
           {surveyQuestions.map((question, index) => {
           const isHelpOpen = openHelpQuestionId === question.questionId;
           const answerValue = getVisibleAnswer(question, visibleAnswers) || '';
@@ -253,7 +277,7 @@ export default function HealthSurveyPage() {
                       key={option}
                       active={answerValue === option}
                       disabled={isSurveyDisabled}
-                      title={isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
+                      title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
                       onClick={() => handleAnswer(question.questionId, option)}
                     >
                       {option}
@@ -267,7 +291,7 @@ export default function HealthSurveyPage() {
                   onChange={(e) => handleAnswer(question.questionId, e.target.value)}
                   placeholder="응답을 입력해주세요"
                   disabled={isSurveyDisabled}
-                  title={isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
+                  title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
                   className={`w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold outline-none transition-all ${
                     isSurveyDisabled
                       ? 'cursor-not-allowed text-slate-500'
@@ -283,7 +307,7 @@ export default function HealthSurveyPage() {
         <button
           type="submit"
           disabled={!canSubmitSurvey || isSubmitting}
-          title={isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
+          title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
           className={`sticky bottom-20 z-20 w-full rounded-2xl py-5 text-lg font-black shadow-lg transition-all md:static ${
             canSubmitSurvey
               ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.99]'
@@ -292,7 +316,9 @@ export default function HealthSurveyPage() {
         >
           {isSubmitting
             ? '제출 중입니다'
-            : isSurveyDisabled
+            : hasSubmittedSurvey
+              ? '제출 완료'
+              : isSurveyDisabled
               ? '예약 전날까지만 작성 가능합니다'
               : isAllAnswered
                 ? '의료진에게 제출하기'

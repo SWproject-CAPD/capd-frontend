@@ -115,7 +115,7 @@ function ChatPanel({
     <section
       className={
         isFull
-          ? 'fixed left-72 right-0 top-14 bottom-0 z-[80] flex flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl'
+          ? 'fixed left-72 right-0 top-14 bottom-0 z-80 flex flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl'
           : 'absolute bottom-full right-0 z-40 mb-3 flex h-130 w-90 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl'
       }
     >

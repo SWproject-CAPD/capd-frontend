@@ -39,8 +39,7 @@ export default function PatientMyPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4 md:p-5">
-          <ProfileStat label="환자번호" value={patient?.patientId || '-'} />
+        <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-3 md:p-5">
           <ProfileStat label="최근 체중" value={latestWeight ? `${latestWeight} kg` : '-'} />
           <ProfileStat label="다음 예약" value={nextReservation ? nextReservation.date : '-'} />
           <ProfileStat label="담당의사" value={nextReservation?.doctorName ? `${nextReservation.doctorName} 선생님` : '-'} />

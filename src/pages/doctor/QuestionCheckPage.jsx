@@ -56,7 +56,6 @@ export default function QuestionCheckPage() {
             <h3 className="mb-4 text-sm font-black text-gray-800">환자 요약</h3>
             <div className="space-y-1">
               <InfoRow label="환자명" value={patient?.name || '-'} />
-              <InfoRow label="환자번호" value={patient?.id || '-'} />
               <InfoRow label="성별/나이" value={patient ? `${patient.sex} / ${patient.age}세` : '-'} />
               <InfoRow label="전화번호" value={patient?.phone || '-'} />
               <InfoRow label="예약 일시" value={patientReservation ? `${patientReservation.date} ${patientReservation.time}` : '-'} />

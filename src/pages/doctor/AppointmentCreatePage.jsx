@@ -113,7 +113,7 @@ export default function AppointmentCreatePage() {
                 >
                   {assignedPatients.map(patient => (
                     <option key={patient.id} value={patient.id}>
-                      {patient.name} 환자 ({patient.id}, {patient.sex}/{patient.age}세)
+                      {patient.name} 환자 ({patient.sex}/{patient.age}세)
                     </option>
                   ))}
                 </select>
@@ -197,15 +197,14 @@ export default function AppointmentCreatePage() {
                     <div className="min-w-0">
                       <div className="truncate text-xl font-black text-slate-900">{displayPatient.name}</div>
                       <div className="mt-1 text-sm font-bold text-slate-400">
-                        {displayPatient.id} · {displayPatient.sex}/{displayPatient.age}세
+                        {displayPatient.sex}/{displayPatient.age}세
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="mt-5 grid grid-cols-2 gap-3">
                     <InfoBox label="전화번호" value={displayPatient.phone} isLoading={isPatientProfileLoading} />
                     <InfoBox label="이메일" value={displayPatient.email} isLoading={isPatientProfileLoading} />
-                    <InfoBox label="환자번호" value={displayPatient.id} />
                   </div>
                 </div>
 

@@ -172,7 +172,10 @@ export function useDoctorReservationOverview(anchorDate = toDateKey()) {
 export function usePatientQuestions(reservationId) {
   return useAsyncData(async () => {
     if (!reservationId) return [];
-    const questions = await surveyApi.getPatientQuestions(reservationId);
+    const questions = await surveyApi.getPatientQuestions(reservationId).catch((error) => {
+      if (error.status === 404) return [];
+      throw error;
+    });
     return (questions || []).map(normalizeQuestion);
   }, [reservationId], { initialData: [] });
 }
@@ -196,7 +199,10 @@ export function useDoctorAnswers(reservationId) {
 export function usePatientAnswers(reservationId) {
   return useAsyncData(async () => {
     if (!reservationId) return [];
-    const answers = await surveyApi.getPatientAnswers(reservationId);
+    const answers = await surveyApi.getPatientAnswers(reservationId).catch((error) => {
+      if (error.status === 404) return [];
+      throw error;
+    });
     return (answers || []).map(normalizeAnswer);
   }, [reservationId], { initialData: [] });
 }

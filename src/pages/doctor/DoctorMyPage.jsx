@@ -167,7 +167,7 @@ function PatientMiniCard({ patient, isLoadingDetails }) {
         <div className="min-w-0">
           <div className="truncate text-lg font-black text-slate-900">{patient.name}</div>
           <div className="mt-1 text-xs font-medium text-slate-500">
-            {patient.sex} / {patient.age}세 · {patient.id}
+            {patient.sex} / {patient.age}세
           </div>
         </div>
 

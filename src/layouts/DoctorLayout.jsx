@@ -3,7 +3,7 @@ import { Outlet, useNavigate, Link, useParams } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
 import DoctorChatPage from '../pages/doctor/DoctorChatPage';
 import { authApi } from '../api/apiClient';
-import { toDateKey } from '../api/adapters';
+import { addDays, toDateKey } from '../api/adapters';
 import {
   useDoctorPatients,
   useDoctorReservationsByDate,
@@ -30,6 +30,8 @@ export default function DoctorLayout() {
   const selectedDateKey = toDateKey(selectedDate);
   const monthStartKey = toDateKey(new Date(year, month, 1));
   const monthEndKey = toDateKey(new Date(year, month, daysInMonth));
+  const nextReservationStartKey = todayKey;
+  const nextReservationEndKey = toDateKey(addDays(todayKey, 90));
   const { data: patients = [], isLoading: isPatientsLoading } = useDoctorPatients();
   const { data: todayReservations = [], reload: reloadTodayReservations } = useDoctorReservationsByDate(todayKey);
   const {
@@ -40,6 +42,10 @@ export default function DoctorLayout() {
     data: monthReservations = [],
     reload: reloadMonthReservations,
   } = useDoctorReservationsByDateRange(monthStartKey, monthEndKey);
+  const {
+    data: upcomingReservations = [],
+    reload: reloadUpcomingReservations,
+  } = useDoctorReservationsByDateRange(nextReservationStartKey, nextReservationEndKey);
 
   const selectedPatient = patients.find(patient => String(patient.id) === String(id));
   const todayPatientIds = new Set(todayReservations.map(reservation => String(reservation.patientId)));
@@ -47,6 +53,7 @@ export default function DoctorLayout() {
   const appointmentDateSet = useMemo(() => (
     new Set(monthReservations.map(reservation => reservation.date).filter(Boolean))
   ), [monthReservations]);
+  const nextReservationByPatientId = buildNextReservationMap(upcomingReservations, todayKey);
 
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
@@ -72,6 +79,10 @@ export default function DoctorLayout() {
       if (!changedDate || (changedDate >= monthStartKey && changedDate <= monthEndKey)) {
         void reloadMonthReservations().catch(() => {});
       }
+
+      if (!changedDate || (changedDate >= nextReservationStartKey && changedDate <= nextReservationEndKey)) {
+        void reloadUpcomingReservations().catch(() => {});
+      }
     };
 
     window.addEventListener('capd:reservations-changed', handleReservationsChanged);
@@ -85,7 +96,10 @@ export default function DoctorLayout() {
     reloadMonthReservations,
     reloadSelectedDateReservations,
     reloadTodayReservations,
+    reloadUpcomingReservations,
     selectedDateKey,
+    nextReservationEndKey,
+    nextReservationStartKey,
     todayKey,
   ]);
 
@@ -109,7 +123,6 @@ export default function DoctorLayout() {
     const normalizedQuery = query.replace(/-/g, '');
     displayedPatients = displayedPatients.filter(patient => (
       patient.name.toLowerCase().includes(query) ||
-      String(patient.id).toLowerCase().includes(query) ||
       String(patient.age).includes(query) ||
       patient.sex.includes(query) ||
       patient.phone.replace(/-/g, '').includes(normalizedQuery)
@@ -179,7 +192,7 @@ export default function DoctorLayout() {
               </div>
               <input
                 type="text"
-                placeholder="이름, 번호, 나이, 성별 검색"
+                placeholder="이름, 나이, 성별, 전화번호 검색"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
@@ -205,27 +218,32 @@ export default function DoctorLayout() {
                 담당 환자 목록을 불러오는 중입니다.
               </div>
             ) : displayedPatients.length > 0 ? (
-              displayedPatients.map((patient) => (
-                <button
-                  key={patient.id}
-                  onClick={() => navigate(`/doctor/${patient.id}`)}
-                  className="w-full text-left p-3 rounded-xl border border-transparent hover:border-blue-100 hover:bg-blue-50 transition-all group"
-                >
-                  <div className="flex justify-between items-start">
-                    <span className="font-bold text-gray-800">{patient.name}</span>
-                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{patient.id}</span>
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <div className="flex flex-col">
-                      <span className="text-xs text-gray-500">{patient.sex}/{patient.age}세</span>
-                      <span className="text-[11px] text-gray-500">{patient.phone}</span>
+              displayedPatients.map((patient) => {
+                const nextReservation = nextReservationByPatientId.get(String(patient.id));
+
+                return (
+                  <button
+                    key={patient.id}
+                    onClick={() => navigate(`/doctor/${patient.id}`)}
+                    className="w-full text-left p-3 rounded-xl border border-transparent hover:border-blue-100 hover:bg-blue-50 transition-all group"
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className="font-bold text-gray-800">{patient.name}</span>
                     </div>
-                    <span className="text-[11px] font-bold text-blue-500">
-                      담당
-                    </span>
-                  </div>
-                </button>
-              ))
+                    <div className="flex justify-between items-center mt-1">
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-xs text-gray-500">{patient.sex}/{patient.age}세</span>
+                        <span className="truncate text-[11px] font-bold text-blue-500">
+                          {formatNextReservationLabel(nextReservation, todayKey)}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-blue-500">
+                        담당
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
             ) : (
               <div className="text-center py-6 text-xs text-gray-400 font-medium">
                 조건에 맞는 담당 환자가 없습니다.
@@ -344,4 +362,33 @@ function toLocalDate(dateKey) {
   }
 
   return new Date(year, month - 1, day);
+}
+
+function buildNextReservationMap(reservations, todayKey) {
+  const nextMap = new Map();
+  const sortedReservations = [...reservations]
+    .filter(reservation => reservation.date >= todayKey)
+    .sort((a, b) => String(a.dateTime || a.reservationDate).localeCompare(String(b.dateTime || b.reservationDate)));
+
+  sortedReservations.forEach((reservation) => {
+    const patientId = String(reservation.patientId);
+
+    if (!nextMap.has(patientId)) {
+      nextMap.set(patientId, reservation);
+    }
+  });
+
+  return nextMap;
+}
+
+function formatNextReservationLabel(reservation, todayKey) {
+  if (!reservation) return '다음 예약 없음';
+
+  const time = reservation.time || '';
+
+  if (reservation.date === todayKey) {
+    return `오늘 ${time}`;
+  }
+
+  return `${String(reservation.date).slice(5)} ${time}`;
 }

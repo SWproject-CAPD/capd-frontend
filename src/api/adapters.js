@@ -62,24 +62,48 @@ export const toDateTimeInputValue = (dateKey, timeValue = '09:00') => {
   return `${dateKey}T${time}:00`;
 };
 
+const formatTimeToSeconds = (timeValue) => {
+  if (!timeValue) return EMPTY_TEXT;
+
+  const [timePart = EMPTY_TEXT] = String(timeValue).split('.');
+  return timePart.slice(0, 8) || EMPTY_TEXT;
+};
+
+export const trimDateTimeToSeconds = (dateTimeValue) => {
+  if (!dateTimeValue) return dateTimeValue;
+
+  const normalized = String(dateTimeValue);
+  const separator = normalized.includes('T') ? 'T' : ' ';
+  const [date = EMPTY_TEXT, rawTime = EMPTY_TEXT] = normalized.split(separator);
+
+  if (!rawTime || date === EMPTY_TEXT) {
+    return normalized.split('.')[0];
+  }
+
+  return `${date}${separator}${formatTimeToSeconds(rawTime)}`;
+};
+
 export const splitDateTime = (dateTimeValue) => {
   if (!dateTimeValue) {
     return { date: EMPTY_TEXT, time: EMPTY_TEXT, dateTime: null };
   }
 
   const normalized = String(dateTimeValue);
-  const [date = EMPTY_TEXT, rawTime = EMPTY_TEXT] = normalized.split('T');
+  const separator = normalized.includes('T') ? 'T' : ' ';
+  const [date = EMPTY_TEXT, rawTime = EMPTY_TEXT] = normalized.split(separator);
+
   return {
     date,
-    time: rawTime.slice(0, 5) || EMPTY_TEXT,
-    dateTime: normalized,
+    time: formatTimeToSeconds(rawTime),
+    dateTime: trimDateTimeToSeconds(normalized),
   };
 };
 
 export const localTimeToString = (value) => {
   if (!value) return '';
-  if (typeof value === 'string') return value.slice(0, 5);
-  return `${pad2(value.hour ?? 0)}:${pad2(value.minute ?? 0)}`;
+  if (typeof value === 'string') return formatTimeToSeconds(value);
+
+  return `${pad2(value.hour ?? 0)}:${pad2(value.minute ?? 0)}:${pad2(value.second ?? value.seconds ?? 0)}`;
 };
 
 export const normalizeSex = (sex) => {
@@ -241,10 +265,12 @@ export const normalizeQuestion = (question = {}) => ({
   question: question.question || '',
   type: question.type || '',
   options: parseOptions(question.options),
+  answered: Boolean(question.answered),
+  answer: question.answer ?? '',
   reason: question.questionReason || '',
   questionReason: question.questionReason || '',
   status: question.status ? String(question.status).toUpperCase() : 'PENDING',
-  createdAt: question.createdAt,
+  createdAt: trimDateTimeToSeconds(question.createdAt),
 });
 
 export const normalizeAnswer = (answer = {}) => {
@@ -261,7 +287,7 @@ export const normalizeAnswer = (answer = {}) => {
     patientName: answer.patientName,
     question: questionText,
     answer: answer.answer ?? answer.content ?? answer.response ?? answer.value ?? '',
-    createdAt: answer.createdAt,
+    createdAt: trimDateTimeToSeconds(answer.createdAt),
   };
 };
 
@@ -270,13 +296,13 @@ export const normalizeChatMessagePair = (chat = {}) => ([
     id: `${chat.chatId || chat.displayOrder || Date.now()}-user`,
     sender: 'user',
     text: chat.userText || '',
-    createdAt: chat.createdAt,
+    createdAt: trimDateTimeToSeconds(chat.createdAt),
   },
   {
     id: `${chat.chatId || chat.displayOrder || Date.now()}-bot`,
     sender: 'bot',
     text: chat.aiText || '',
-    createdAt: chat.createdAt,
+    createdAt: trimDateTimeToSeconds(chat.createdAt),
   },
 ]);
 

@@ -177,7 +177,7 @@ export default function DoctorHome() {
                       </div>
                       <div>
                         <div className="font-bold text-slate-900 text-sm">{patient.name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{patient.sex}/{patient.age}세 · {patient.id}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{patient.sex}/{patient.age}세</div>
                       </div>
                     </div>
                   </td>

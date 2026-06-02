@@ -34,7 +34,6 @@ export default function PatientInfoPage() {
               {patient.name.charAt(0)}
             </div>
             <h2 className="text-xl font-black text-white z-10">{patient.name}</h2>
-            <div className="text-blue-300 font-mono text-sm z-10 mt-1">{patient.id}</div>
           </div>
 
           <div className="p-6 space-y-5 flex-1">

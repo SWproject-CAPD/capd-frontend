@@ -10,6 +10,12 @@ const ShortcutIcon = () => (
   </svg>
 );
 
+const CHART_LABEL_COLORS = {
+  weight: '#9333ea',
+  bp: '#dc2626',
+  uf: '#2563eb',
+};
+
 export default function PatientInsightPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -47,6 +53,7 @@ export default function PatientInsightPage() {
     Number(history[0]?.weight || 0) -
     Number((history[3] || history[history.length - 1] || history[0] || {}).weight || 0)
   ).toFixed(1);
+  const chartLabelPlacements = new Map();
 
   return (
     <div className="p-4 md:p-6 animate-in fade-in duration-500 h-full flex flex-col overflow-hidden bg-slate-50">
@@ -73,7 +80,6 @@ export default function PatientInsightPage() {
             </div>
             <div>
               <h2 className="text-lg font-black leading-tight">{patient.name}</h2>
-              <p className="text-[10px] text-slate-300 font-mono">{patient.id}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs z-10 mt-auto">
@@ -136,13 +142,13 @@ export default function PatientInsightPage() {
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${entry.date || index}`} fill="#e9d5ff" className="hover:fill-[#d8b4fe] transition-colors cursor-pointer" />
                   ))}
-                  <LabelList dataKey="weight" position="top" offset={8} fill="#9333ea" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
+                  <LabelList dataKey="weight" content={(props) => <ChartValueLabel {...props} fill={CHART_LABEL_COLORS.weight} position="top" offset={8} placements={chartLabelPlacements} />} />
                 </Bar>
                 <Line yAxisId="uf" type="monotone" dataKey="uf" name="제수량 (mL)" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 7 }}>
-                  <LabelList dataKey="uf" position="top" offset={18} fill="#2563eb" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
+                  <LabelList dataKey="uf" content={(props) => <ChartValueLabel {...props} fill={CHART_LABEL_COLORS.uf} position="top" offset={18} placements={chartLabelPlacements} />} />
                 </Line>
                 <Line yAxisId="bp" type="monotone" dataKey="bpSystolic" name="수축기 혈압 (mmHg)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 7 }}>
-                  <LabelList dataKey="bpSystolic" position="top" offset={8} fill="#dc2626" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
+                  <LabelList dataKey="bpSystolic" content={(props) => <ChartValueLabel {...props} fill={CHART_LABEL_COLORS.bp} position="top" offset={8} placements={chartLabelPlacements} />} />
                 </Line>
               </ComposedChart>
             </ResponsiveContainer>
@@ -268,6 +274,45 @@ function MetricCard({ label, value, subText, diff, diffClass, valueClass = 'text
 function formatSignedNumber(value) {
   const numberValue = Number(value || 0);
   return numberValue > 0 ? `+${numberValue}` : String(numberValue);
+}
+
+function ChartValueLabel({ x, y, width = 0, value, fill, position = 'top', offset = 8, placements }) {
+  if (value === null || value === undefined || value === '') return null;
+
+  const label = String(value);
+  const labelX = Number(x || 0) + Number(width || 0) / 2;
+  const baseY = Number(y || 0) + (position === 'bottom' ? offset : -offset);
+  const labelWidth = Math.max(24, label.length * 7);
+  const labelHeight = 14;
+  let labelY = baseY;
+  const direction = position === 'bottom' ? 1 : -1;
+  const nearbyLabels = Array.from(placements.values()).filter(placed => (
+    Math.abs(placed.x - labelX) < Math.max(28, (placed.width + labelWidth) / 2)
+  ));
+
+  while (nearbyLabels.some(placed => Math.abs(placed.y - labelY) < labelHeight)) {
+    labelY += direction * labelHeight;
+  }
+
+  placements.set(`${labelX}-${label}-${fill}`, {
+    x: labelX,
+    y: labelY,
+    width: labelWidth,
+  });
+
+  return (
+    <text
+      x={labelX}
+      y={labelY}
+      textAnchor="middle"
+      fill={fill}
+      fontSize={13}
+      fontWeight={900}
+      style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }}
+    >
+      {label}
+    </text>
+  );
 }
 
 function AnalysisRow({ label, value, warning = false }) {
