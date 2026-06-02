@@ -1,16 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import BackToPatientButton from '../../components/BackToPatientButton';
 import Card from '../../components/Card';
 import { reportApi } from '../../api/apiClient';
 import { normalizeReport } from '../../api/adapters';
-import { useDoctorPatientProfile, usePatientReports } from '../../hooks/usePatientData';
+import { useDoctorPatientProfile, useDoctorPatientRecords, usePatientReports } from '../../hooks/usePatientData';
 
 export default function AiReportPage() {
   const { id } = useParams();
   const patientId = Number(id);
   const { data: patient } = useDoctorPatientProfile(id);
   const { data: savedReports = [], reload } = usePatientReports(id);
+  const { data: patientRecords = [] } = useDoctorPatientRecords(id);
   const initialDate = useMemo(() => new Date(), []);
 
   const [selectedYear, setSelectedYear] = useState(initialDate.getFullYear());
@@ -20,6 +22,9 @@ export default function AiReportPage() {
   const [reportData, setReportData] = useState(null);
 
   const activeReport = reportData || savedReports[0] || null;
+  const reportChartData = useMemo(() => (
+    buildReportChartData(activeReport, patientRecords)
+  ), [activeReport, patientRecords]);
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
   const yearOptions = useMemo(() => {
     const year = initialDate.getFullYear();
@@ -80,9 +85,9 @@ export default function AiReportPage() {
   };
 
   return (
-    <div className="h-full overflow-hidden bg-slate-50 p-4 md:p-6 animate-in fade-in duration-500">
+    <div className="ai-report-page h-full overflow-hidden bg-slate-50 p-4 md:p-6 animate-in fade-in duration-500">
       <div className="flex h-full min-h-0 flex-col">
-        <div className="mb-5 shrink-0">
+        <div className="ai-report-no-print mb-5 shrink-0">
           <BackToPatientButton />
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -103,8 +108,8 @@ export default function AiReportPage() {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-12">
-          <aside className="min-h-0 xl:col-span-4 overflow-y-auto custom-scrollbar pr-1">
+        <div className="ai-report-layout grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-12">
+          <aside className="ai-report-no-print min-h-0 xl:col-span-4 overflow-y-auto custom-scrollbar pr-1">
             <Card className="flex h-fit flex-col border-none p-5 shadow-sm">
               <h3 className="mb-4 text-sm font-black text-gray-800">보고서 조건</h3>
 
@@ -159,8 +164,8 @@ export default function AiReportPage() {
             </Card>
           </aside>
 
-          <main className="min-h-0 xl:col-span-8">
-            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
+          <main className="ai-report-print-root min-h-0 xl:col-span-8">
+            <div className="ai-report-print-shell flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
               {isLoading ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-4">
                   <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
@@ -168,15 +173,17 @@ export default function AiReportPage() {
                 </div>
               ) : activeReport ? (
                 <>
-                  <div className="shrink-0 border-b border-gray-100 bg-slate-50 px-6 py-4">
+                  <div className="shrink-0 border-b border-gray-100 bg-white px-6 py-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Report Summary</span>
-                        <h2 className="mt-1 text-lg font-black text-gray-900">{activeReport.title}</h2>
-                        <p className="mt-1 font-mono text-xs text-gray-400">{activeReport.period}</p>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Weekly AI Report</span>
+                        <h2 className="mt-1 text-xl font-black leading-snug text-gray-900">{activeReport.title}</h2>
+                        <p className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-bold text-slate-500">
+                          {activeReport.period}
+                        </p>
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="ai-report-print-actions flex shrink-0 items-center gap-2">
                         <button type="button" onClick={handleExportPdf} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 transition-colors hover:bg-blue-100">
                           PDF로 내보내기
                         </button>
@@ -187,36 +194,78 @@ export default function AiReportPage() {
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6 custom-scrollbar">
-                    <p className="text-lg font-bold italic leading-relaxed text-gray-800">
-                      "{activeReport.summary}"
-                    </p>
+                  <div className="ai-report-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-6 custom-scrollbar">
+                    <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5">
+                      <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-blue-500">Summary</div>
+                      <p className="text-base font-bold leading-8 text-slate-800 md:text-lg">
+                        {activeReport.summary}
+                      </p>
+                    </section>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       {activeReport.vitals.map((item, index) => (
-                        <div key={`${item.label}-${index}`} className="flex flex-col items-center rounded-2xl border border-gray-100 bg-slate-50 p-4 text-center">
-                          <span className="mb-1 text-[10px] font-bold text-gray-400">{item.label}</span>
-                          <span className="text-sm font-black text-slate-800">
+                        <div key={`${item.label}-${index}`} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{item.label}</span>
+                          <span className="mt-2 block text-sm font-black leading-6 text-slate-800">
                             {item.value}
                           </span>
                         </div>
                       ))}
                     </div>
 
+                    <ReportSection title="기간별 주요 지표 추이">
+                      {reportChartData.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <ReportTrendCard
+                            title="체중 변화"
+                            data={reportChartData}
+                            dataKey="weight"
+                            color="#9333ea"
+                            unit="kg"
+                          />
+                          <ReportTrendCard
+                            title="수축기 혈압"
+                            data={reportChartData}
+                            dataKey="bpSystolic"
+                            color="#ef4444"
+                            unit="mmHg"
+                          />
+                          <ReportTrendCard
+                            title="공복혈당"
+                            data={reportChartData}
+                            dataKey="fbs"
+                            color="#f97316"
+                            unit="mg/dL"
+                          />
+                          <ReportTrendCard
+                            title="제수량"
+                            data={reportChartData}
+                            dataKey="uf"
+                            color="#2563eb"
+                            unit="mL"
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-gray-200 bg-slate-50 p-5 text-center text-xs font-bold text-gray-400">
+                          보고서 기간에 표시할 투석 기록이 없습니다.
+                        </div>
+                      )}
+                    </ReportSection>
+
                     <ReportSection title="AI 정밀 데이터 분석">
                       {activeReport.analysis.map((text, index) => (
-                        <div key={`${text}-${index}`} className="flex items-start gap-4 group">
-                          <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-400 transition-colors group-hover:bg-blue-100 group-hover:text-blue-600">
+                        <div key={`${text}-${index}`} className="group flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600 transition-colors group-hover:bg-blue-100">
                             {index + 1}
                           </span>
-                          <p className="text-sm leading-relaxed text-gray-600">{text}</p>
+                          <p className="text-sm font-medium leading-7 text-gray-700">{text}</p>
                         </div>
                       ))}
                     </ReportSection>
 
-                    <div className="rounded-3xl bg-blue-900 p-6 text-white shadow-lg">
-                      <h3 className="mb-2 text-[10px] font-black uppercase tracking-widest text-blue-200">Medical Recommendation</h3>
-                      <p className="text-base font-bold md:text-lg">{activeReport.recommendation}</p>
+                    <div className="rounded-3xl border border-blue-800 bg-blue-900 p-6 text-white shadow-lg">
+                      <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-blue-200">Medical Recommendation</h3>
+                      <p className="text-base font-bold leading-8 md:text-lg">{activeReport.recommendation}</p>
                     </div>
                   </div>
                 </>
@@ -242,16 +291,113 @@ function FieldLabel({ label, children }) {
   );
 }
 
+function ReportTrendCard({ title, data, dataKey, color, unit }) {
+  const latestValue = getLatestMetricValue(data, dataKey);
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-black text-gray-800">{title}</div>
+          <div className="mt-1 text-[10px] font-bold text-gray-400">보고서 기간 내 추이</div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-base font-black" style={{ color }}>
+            {latestValue ?? '-'}
+          </div>
+          <div className="text-[10px] font-bold text-gray-400">{unit}</div>
+        </div>
+      </div>
+
+      <div className="h-24">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+            <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" vertical={false} />
+            <XAxis
+              dataKey="dateLabel"
+              axisLine={false}
+              tickLine={false}
+              interval="preserveStartEnd"
+              tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 700 }}
+            />
+            <YAxis hide domain={['auto', 'auto']} />
+            <Tooltip
+              formatter={(value) => [`${value} ${unit}`, title]}
+              labelFormatter={(label) => `날짜 ${label}`}
+              contentStyle={{
+                border: 'none',
+                borderRadius: 12,
+                boxShadow: '0 10px 20px rgb(15 23 42 / 0.12)',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
+              strokeWidth={3}
+              dot={{ r: 3, fill: color, stroke: '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 5 }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function ReportSection({ title, children }) {
   return (
-    <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white">
-      <div className="border-b border-gray-100 bg-slate-50 px-6 py-4">
+    <section className="overflow-hidden rounded-3xl border border-gray-100 bg-slate-50/60">
+      <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h3 className="flex items-center gap-2 text-sm font-black text-gray-800">
           <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
           {title}
         </h3>
       </div>
       <div className="space-y-4 p-6">{children}</div>
-    </div>
+    </section>
   );
+}
+
+function buildReportChartData(report, records = []) {
+  if (!report) return [];
+
+  const startDate = report.startDate || '';
+  const endDate = report.endDate || '';
+
+  return records
+    .filter((record) => {
+      if (!record.date) return false;
+      if (startDate && record.date < startDate) return false;
+      if (endDate && record.date > endDate) return false;
+      return true;
+    })
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .map(record => ({
+      date: record.date,
+      dateLabel: record.displayDate || String(record.date).slice(5),
+      weight: toChartNumber(record.weight),
+      bpSystolic: toChartNumber(record.bpSystolic),
+      fbs: toChartNumber(record.fbs),
+      uf: toChartNumber(record.uf),
+    }));
+}
+
+function toChartNumber(value) {
+  if (value === '' || value === '-' || value === null || value === undefined) return null;
+
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function getLatestMetricValue(data, dataKey) {
+  for (let index = data.length - 1; index >= 0; index -= 1) {
+    const value = data[index]?.[dataKey];
+    if (value !== null && value !== undefined) return value;
+  }
+
+  return null;
 }

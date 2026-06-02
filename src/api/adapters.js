@@ -62,6 +62,13 @@ export const toDateTimeInputValue = (dateKey, timeValue = '09:00') => {
   return `${dateKey}T${time}:00`;
 };
 
+const formatTimeToMinutes = (timeValue) => {
+  if (!timeValue) return EMPTY_TEXT;
+
+  const [timePart = EMPTY_TEXT] = String(timeValue).split('.');
+  return timePart.slice(0, 5) || EMPTY_TEXT;
+};
+
 const formatTimeToSeconds = (timeValue) => {
   if (!timeValue) return EMPTY_TEXT;
 
@@ -94,16 +101,16 @@ export const splitDateTime = (dateTimeValue) => {
 
   return {
     date,
-    time: formatTimeToSeconds(rawTime),
+    time: formatTimeToMinutes(rawTime),
     dateTime: trimDateTimeToSeconds(normalized),
   };
 };
 
 export const localTimeToString = (value) => {
   if (!value) return '';
-  if (typeof value === 'string') return formatTimeToSeconds(value);
+  if (typeof value === 'string') return formatTimeToMinutes(value);
 
-  return `${pad2(value.hour ?? 0)}:${pad2(value.minute ?? 0)}:${pad2(value.second ?? value.seconds ?? 0)}`;
+  return `${pad2(value.hour ?? 0)}:${pad2(value.minute ?? 0)}`;
 };
 
 export const normalizeSex = (sex) => {

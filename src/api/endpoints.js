@@ -51,6 +51,7 @@ export const ENDPOINTS = {
   },
   surveys: {
     doctorQuestions: (reservationId) => withPathParams('/api/surveys/{reservationId}/questions', { reservationId }),
+    doctorManualQuestions: (reservationId) => withPathParams('/api/surveys/{reservationId}/questions/manual', { reservationId }),
     patientQuestions: (reservationId) => withPathParams('/api/surveys/{reservationId}/patient/questions', { reservationId }),
     answers: (reservationId) => withPathParams('/api/surveys/{reservationId}/answers', { reservationId }),
     patientAnswers: (reservationId) => withPathParams('/api/surveys/{reservationId}/patient/answers', { reservationId }),

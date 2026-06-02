@@ -269,6 +269,7 @@ export const reservationApi = {
 export const surveyApi = {
   getDoctorQuestions: (reservationId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.doctorQuestions(reservationId) }),
   createQuestion: (reservationId, payload) => apiRequest({ method: 'post', url: ENDPOINTS.surveys.doctorQuestions(reservationId), data: payload }),
+  createManualQuestion: (reservationId, payload) => apiRequest({ method: 'post', url: ENDPOINTS.surveys.doctorManualQuestions(reservationId), data: payload }),
   getDoctorAnswers: (reservationId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.answers(reservationId) }),
   getPatientAnswers: (reservationId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.patientAnswers(reservationId) }),
   getPatientAnswer: (answerId) => apiRequest({ method: 'get', url: ENDPOINTS.surveys.patientAnswer(answerId) }),

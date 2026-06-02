@@ -23,3 +23,60 @@
     @apply bg-gray-400;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: auto !important;
+    background: #ffffff !important;
+  }
+
+  .ai-report-page {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .ai-report-no-print,
+  .ai-report-print-actions {
+    display: none !important;
+  }
+
+  .ai-report-layout {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .ai-report-print-root,
+  .ai-report-print-shell,
+  .ai-report-scroll {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .ai-report-print-shell {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ai-report-scroll {
+    padding: 20px 0 0 !important;
+  }
+
+  .ai-report-print-root .recharts-responsive-container {
+    min-height: 96px !important;
+  }
+}

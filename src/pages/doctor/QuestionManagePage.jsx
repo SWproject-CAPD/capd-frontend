@@ -60,7 +60,7 @@ export default function QuestionManagePage() {
 
   const handleManualGenerate = async (payload) => {
     try {
-      await surveyApi.createQuestion(reservationId, payload);
+      await surveyApi.createManualQuestion(reservationId, payload);
       await reload();
       setActiveTab('PENDING');
       setIsCreateModalOpen(false);
@@ -292,7 +292,6 @@ function QuestionCreateModal({ reservation, onAutoGenerate, onManualGenerate, on
       question: question.trim(),
       type,
       options: type === 'MULTIPLE_CHOICE' ? JSON.stringify(options) : '[]',
-      questionReason: '의사가 수동으로 작성한 질문입니다.',
     });
     setIsSubmitting(false);
   };
