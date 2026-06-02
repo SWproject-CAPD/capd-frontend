@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { surveyApi } from '../../api/apiClient';
 import { getUpcomingReservation, usePatientAnswers, usePatientQuestions, usePatientReservations } from '../../hooks/usePatientData';
@@ -27,6 +27,7 @@ export default function HealthSurveyPage() {
   const [openHelpQuestionId, setOpenHelpQuestionId] = useState(null);
   const [helpTextByQuestionId, setHelpTextByQuestionId] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [surveyStatusByReservationId, setSurveyStatusByReservationId] = useState({});
 
   const activeReservationKey = String(activeReservation?.reservationId || '');
   const draftAnswers = answersByReservationId[activeReservationKey] || {};
@@ -65,6 +66,50 @@ export default function HealthSurveyPage() {
   )).length;
   const isAllAnswered = surveyQuestions.length > 0 && answeredCount === surveyQuestions.length;
   const canSubmitSurvey = isAllAnswered && canWriteSurvey && !hasSubmittedSurvey;
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadSurveyStatuses = async () => {
+      if (reservations.length === 0) {
+        setSurveyStatusByReservationId({});
+        return;
+      }
+
+      const entries = await Promise.all(reservations.map(async (reservation) => {
+        const reservationId = reservation.reservationId;
+
+        if (!isBeforeAppointmentDate(reservation.date)) {
+          return [String(reservationId), 'closed'];
+        }
+
+        try {
+          const [questions, answers] = await Promise.all([
+            surveyApi.getPatientQuestions(reservationId).catch(emptyOnNotFound),
+            surveyApi.getPatientAnswers(reservationId).catch(emptyOnNotFound),
+          ]);
+          const hasAnswers = (
+            (answers || []).length > 0 ||
+            (questions || []).some(question => question.answered || question.answer)
+          );
+
+          return [String(reservationId), hasAnswers ? 'submitted' : 'available'];
+        } catch {
+          return [String(reservationId), 'available'];
+        }
+      }));
+
+      if (!ignore) {
+        setSurveyStatusByReservationId(Object.fromEntries(entries));
+      }
+    };
+
+    void loadSurveyStatuses();
+
+    return () => {
+      ignore = true;
+    };
+  }, [reservations]);
 
   const headerMessage = useMemo(() => {
     if (isReservationsLoading || isQuestionsLoading) return '설문 정보를 불러오는 중입니다.';
@@ -117,6 +162,10 @@ export default function HealthSurveyPage() {
       alert('설문이 성공적으로 담당 의료진에게 전달되었습니다.\n작성한 내용은 이 화면에서 다시 확인할 수 있습니다.');
       await reload();
       await reloadSubmittedAnswers();
+      setSurveyStatusByReservationId(prev => ({
+        ...prev,
+        [String(activeReservation.reservationId)]: 'submitted',
+      }));
     } catch (error) {
       alert(error.message || '설문 제출에 실패했습니다.');
     } finally {
@@ -166,7 +215,10 @@ export default function HealthSurveyPage() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {reservations.map(reservation => {
                   const isActive = String(reservation.reservationId) === String(activeReservation?.reservationId);
-                  const isWritable = isBeforeAppointmentDate(reservation.date);
+                  const surveyStatus = getReservationSurveyStatus(
+                    reservation,
+                    surveyStatusByReservationId[String(reservation.reservationId)],
+                  );
 
                   return (
                     <button
@@ -183,8 +235,8 @@ export default function HealthSurveyPage() {
                       }`}
                     >
                       <span className="block">{reservation.date} {reservation.time}</span>
-                      <span className={`mt-0.5 block text-[10px] ${isWritable ? 'text-emerald-500' : 'text-slate-400'}`}>
-                        {isWritable ? '작성 가능' : '작성 마감'}
+                      <span className={`mt-0.5 block text-[10px] ${surveyStatus.className}`}>
+                        {surveyStatus.label}
                       </span>
                     </button>
                   );
@@ -375,4 +427,33 @@ function isBeforeAppointmentDate(appointmentDate) {
   appointment.setHours(0, 0, 0, 0);
 
   return today < appointment;
+}
+
+function getReservationSurveyStatus(reservation, storedStatus) {
+  if (!isBeforeAppointmentDate(reservation.date)) {
+    return {
+      key: 'closed',
+      label: '작성 마감',
+      className: 'text-slate-400',
+    };
+  }
+
+  if (storedStatus === 'submitted') {
+    return {
+      key: 'submitted',
+      label: '작성 완료',
+      className: 'text-blue-500',
+    };
+  }
+
+  return {
+    key: 'available',
+    label: '작성 가능',
+    className: 'text-emerald-500',
+  };
+}
+
+function emptyOnNotFound(error) {
+  if (error.status === 404) return [];
+  throw error;
 }
