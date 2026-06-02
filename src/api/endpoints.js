@@ -5,7 +5,7 @@ const withPathParams = (path, params = {}) => (
   )
 );
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://kimjeongmo.shop';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.capd.site';
 
 export const ENDPOINTS = {
   auth: {

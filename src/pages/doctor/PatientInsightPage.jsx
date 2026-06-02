@@ -125,7 +125,7 @@ export default function PatientInsightPage() {
 
           <div className="flex-1 relative w-full h-full min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 25, right: 10, bottom: 0, left: 10 }}>
+              <ComposedChart data={chartData} margin={{ top: 36, right: 12, bottom: 12, left: 12 }}>
                 <CartesianGrid stroke="#f1f5f9" strokeDasharray="6 6" vertical={false} />
                 <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12, fontWeight: 'bold' }} dy={10} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{ fill: '#f8fafc' }} />
@@ -136,13 +136,13 @@ export default function PatientInsightPage() {
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${entry.date || index}`} fill="#e9d5ff" className="hover:fill-[#d8b4fe] transition-colors cursor-pointer" />
                   ))}
-                  <LabelList dataKey="weight" position="top" fill="#9333ea" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
+                  <LabelList dataKey="weight" position="top" offset={8} fill="#9333ea" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
                 </Bar>
                 <Line yAxisId="uf" type="monotone" dataKey="uf" name="제수량 (mL)" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 7 }}>
-                  <LabelList dataKey="uf" position="top" offset={12} fill="#2563eb" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
+                  <LabelList dataKey="uf" position="top" offset={18} fill="#2563eb" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
                 </Line>
                 <Line yAxisId="bp" type="monotone" dataKey="bpSystolic" name="수축기 혈압 (mmHg)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 7 }}>
-                  <LabelList dataKey="bpSystolic" position="bottom" offset={12} fill="#dc2626" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
+                  <LabelList dataKey="bpSystolic" position="top" offset={8} fill="#dc2626" fontSize={13} fontWeight={900} style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 4 }} />
                 </Line>
               </ComposedChart>
             </ResponsiveContainer>
