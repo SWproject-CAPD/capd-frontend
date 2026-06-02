@@ -286,13 +286,17 @@ function QuestionCreateModal({ reservation, onAutoGenerate, onManualGenerate, on
       .split(',')
       .map(option => option.trim())
       .filter(Boolean);
-
-    setIsSubmitting(true);
-    await onManualGenerate({
+    const payload = {
       question: question.trim(),
       type,
-      options: type === 'MULTIPLE_CHOICE' ? JSON.stringify(options) : '[]',
-    });
+    };
+
+    if (type === 'MULTIPLE_CHOICE') {
+      payload.options = JSON.stringify(options);
+    }
+
+    setIsSubmitting(true);
+    await onManualGenerate(payload);
     setIsSubmitting(false);
   };
 
@@ -348,7 +352,8 @@ function QuestionCreateModal({ reservation, onAutoGenerate, onManualGenerate, on
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
                 <option value="MULTIPLE_CHOICE">객관식</option>
-                <option value="SHORT_ANSWER">주관식</option>
+                <option value="YES_NO">예/아니오</option>
+                <option value="DESCRIPTIVE">주관식</option>
               </select>
             </div>
             <div>
