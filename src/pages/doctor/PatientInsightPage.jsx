@@ -100,8 +100,8 @@ export default function PatientInsightPage() {
         />
         <MetricCard
           label="최근 제수량 (mL)"
-          value={`+${latestRecord.uf || 0}`}
-          valueClass="text-blue-600"
+          value={formatSignedNumber(latestRecord.uf || 0)}
+          valueClass={Number(latestRecord.uf || 0) < 0 ? 'text-red-500' : 'text-blue-600'}
           sparkData={ufHistory7Days}
           sparkColor="#0ea5e9"
         />
@@ -163,7 +163,7 @@ export default function PatientInsightPage() {
           </div>
 
           <div className="flex-1 flex flex-col justify-between gap-2 overflow-y-auto">
-            <AnalysisRow label="최근 3일 제수량" value={`평균 +${avgUf3Days} mL`} warning={avgUf3Days <= 800} />
+            <AnalysisRow label="최근 3일 제수량" value={`평균 ${formatSignedNumber(avgUf3Days)} mL`} warning={avgUf3Days <= 800} />
             <AnalysisRow label="최근 혈압" value={`최근 ${latestRecord.bp || '-'}`} warning={Number(latestRecord.bpSystolic || 0) > 140} />
             <AnalysisRow label="최근 3일 체중" value={`${Number(weightDiff3Days) > 0 ? '증가' : '감소'} (${Number(weightDiff3Days) > 0 ? '+' : ''}${weightDiff3Days}kg)`} />
           </div>
@@ -199,7 +199,9 @@ export default function PatientInsightPage() {
                     <td className="px-3 py-2"><span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600">{exchange.concentration}%</span></td>
                     <td className="px-3 py-2 text-gray-500 font-mono">{exchange.infused}</td>
                     <td className="px-3 py-2 text-gray-500 font-mono">{exchange.drained}</td>
-                    <td className="px-3 py-2 font-bold text-blue-600 font-mono">+{exchange.uf}</td>
+                    <td className={`px-3 py-2 font-bold font-mono ${Number(exchange.uf || 0) < 0 ? 'text-red-500' : 'text-blue-600'}`}>
+                      {formatSignedNumber(exchange.uf)}
+                    </td>
                   </tr>
                 ))}
                 {recent3DaysExchanges.length === 0 && (
@@ -261,6 +263,11 @@ function MetricCard({ label, value, subText, diff, diffClass, valueClass = 'text
       </div>
     </div>
   );
+}
+
+function formatSignedNumber(value) {
+  const numberValue = Number(value || 0);
+  return numberValue > 0 ? `+${numberValue}` : String(numberValue);
 }
 
 function AnalysisRow({ label, value, warning = false }) {

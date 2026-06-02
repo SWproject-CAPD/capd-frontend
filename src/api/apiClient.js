@@ -204,6 +204,18 @@ export const userApi = {
     url: ENDPOINTS.users.password,
     data: payload,
   }),
+  sendEmailVerification: (payload) => apiRequest({
+    method: 'post',
+    url: ENDPOINTS.users.emailVerification,
+    data: payload,
+    skipAuthRefresh: true,
+  }),
+  verifyEmailCode: (payload) => apiRequest({
+    method: 'post',
+    url: ENDPOINTS.users.emailVerify,
+    data: payload,
+    skipAuthRefresh: true,
+  }),
 };
 
 export const patientApi = {

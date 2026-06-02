@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Input from '../components/Input';
+import PasswordInput from '../components/PasswordInput';
 import Button from '../components/Button';
-import { doctorApi } from '../api/apiClient';
+import { doctorApi, userApi } from '../api/apiClient';
 
 export default function DoctorRegister() {
   const navigate = useNavigate();
@@ -46,10 +47,17 @@ export default function DoctorRegister() {
 
     setIsSendingEmail(true);
 
-    setEmailSent(false);
-    setEmailVerified(false);
-    setIsSendingEmail(false);
-    alert('이메일 인증 API는 백엔드 추가 예정입니다. 현재 회원가입은 인증 없이 진행됩니다.');
+    try {
+      await userApi.sendEmailVerification({ email: formData.email.trim() });
+      setEmailCode('');
+      setEmailSent(true);
+      setEmailVerified(false);
+      alert('입력한 이메일로 인증번호를 발송했습니다.');
+    } catch (error) {
+      alert(error.message || '이메일 인증번호 발송에 실패했습니다.');
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleCheckEmailCode = async () => {
@@ -60,8 +68,18 @@ export default function DoctorRegister() {
 
     setIsCheckingCode(true);
 
-    setIsCheckingCode(false);
-    alert('이메일 인증 API가 추가되면 이 단계에서 인증번호를 확인합니다.');
+    try {
+      await userApi.verifyEmailCode({
+        email: formData.email.trim(),
+        code: emailCode.trim(),
+      });
+      setEmailVerified(true);
+      alert('이메일 인증이 완료되었습니다.');
+    } catch (error) {
+      alert(error.message || '인증번호 확인에 실패했습니다.');
+    } finally {
+      setIsCheckingCode(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -69,6 +87,11 @@ export default function DoctorRegister() {
 
     if (formData.password !== formData.confirmPassword) {
       alert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (!emailVerified) {
+      alert('이메일 인증을 완료해주세요.');
       return;
     }
 
@@ -196,19 +219,17 @@ export default function DoctorRegister() {
             )}
           </div>
 
-          <Input
+          <PasswordInput
             label="비밀번호"
             name="password"
-            type="password"
             placeholder="8자 이상 입력"
             onChange={handleChange}
             required
           />
 
-          <Input
+          <PasswordInput
             label="비밀번호 확인"
             name="confirmPassword"
-            type="password"
             placeholder="비밀번호 재입력"
             onChange={handleChange}
             required

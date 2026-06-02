@@ -53,7 +53,7 @@ export default function RecordListPage() {
               <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 relative">
                 <div className="text-xs font-bold text-blue-600 uppercase mb-1">{selectedDateStr}</div>
                 <div className="text-2xl font-black text-gray-900 mb-6">
-                  총 제수량 <span className={activeRecord.totalUf >= 0 ? 'text-blue-600' : 'text-red-500'}>{activeRecord.totalUf > 0 ? `+${activeRecord.totalUf}` : activeRecord.totalUf}mL</span>
+                  총 제수량 <span className={activeRecord.totalUf >= 0 ? 'text-blue-600' : 'text-red-500'}>{formatSignedNumber(activeRecord.totalUf)}mL</span>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -175,7 +175,9 @@ export default function RecordListPage() {
                       }`}
                     >
                       <span className={`text-sm font-bold ${isRecordSelected ? 'text-blue-700' : 'text-gray-700'}`}>{record.date}</span>
-                      <span className="text-xs font-black text-blue-500">+{record.totalUf}mL</span>
+                      <span className={`text-xs font-black ${Number(record.totalUf || 0) < 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                        {formatSignedNumber(record.totalUf)}mL
+                      </span>
                     </button>
                   );
                 })}
@@ -200,4 +202,9 @@ function SummaryBox({ label, value, accent = '' }) {
       <div className={`text-sm font-black text-gray-800 ${accent}`}>{value}</div>
     </div>
   );
+}
+
+function formatSignedNumber(value) {
+  const numberValue = Number(value || 0);
+  return numberValue > 0 ? `+${numberValue}` : String(numberValue);
 }

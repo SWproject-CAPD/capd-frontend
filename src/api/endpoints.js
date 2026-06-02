@@ -17,6 +17,8 @@ export const ENDPOINTS = {
   users: {
     password: '/api/users/password',
     passwordReset: '/api/users/password/reset',
+    emailVerification: '/api/users/email/verification',
+    emailVerify: '/api/users/email/verify',
   },
   patients: {
     root: '/api/patients',

@@ -142,7 +142,7 @@ export default function RecordLogsPage() {
                         <span className="text-lg font-black text-gray-800">{dayData.displayDate.replace('-', '/')}</span>
                       </div>
                       <div className="h-8 w-px bg-gray-200 mx-2"></div>
-                      <Summary label="총 제수량" value={`+${dayData.uf}mL`} warning={isWarning && dayData.uf < 800} />
+                      <Summary label="총 제수량" value={`${formatSignedNumber(dayData.uf)}mL`} warning={isWarning && dayData.uf < 800} />
                       <div className="hidden sm:block"><Summary label="혈압" value={dayData.bp} warning={isWarning && dayData.bpSystolic >= 140} /></div>
                       <div className="hidden sm:block"><Summary label="투석 횟수" value={`${dayData.exchanges.length}회`} /></div>
                     </div>
@@ -183,7 +183,9 @@ export default function RecordLogsPage() {
                                 <td className="px-4 py-3"><span className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-bold text-gray-600">{exchange.concentration}%</span></td>
                                 <td className="px-4 py-3 text-right text-gray-500 font-mono">{exchange.infused}</td>
                                 <td className="px-4 py-3 text-right text-gray-500 font-mono">{exchange.drained}</td>
-                                <td className="px-4 py-3 text-right font-bold text-blue-600 font-mono">+{exchange.uf}</td>
+                                <td className={`px-4 py-3 text-right font-bold font-mono ${Number(exchange.uf || 0) < 0 ? 'text-red-500' : 'text-blue-600'}`}>
+                                  {formatSignedNumber(exchange.uf)}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -214,6 +216,11 @@ function Summary({ label, value, warning = false }) {
       <div className={`text-sm font-black ${warning ? 'text-red-600' : 'text-gray-700'}`}>{value}</div>
     </div>
   );
+}
+
+function formatSignedNumber(value) {
+  const numberValue = Number(value || 0);
+  return numberValue > 0 ? `+${numberValue}` : String(numberValue);
 }
 
 function HealthSummary({ icon, label, value }) {
