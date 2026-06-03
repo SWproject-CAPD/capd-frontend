@@ -40,6 +40,13 @@ export default function AppointmentCheckPage() {
   };
 
   const handleCancelAppointment = async (appointment) => {
+    const status = getReservationStatus(appointment);
+
+    if (status.key === 'past') {
+      alert('지난 예약은 취소할 수 없습니다.');
+      return;
+    }
+
     const confirmed = window.confirm(
       `${appointment.patientName} 환자의 ${appointment.date} ${appointment.time} 예약을 취소하시겠습니까?`,
     );
@@ -192,9 +199,15 @@ export default function AppointmentCheckPage() {
                       <button
                         type="button"
                         onClick={() => handleCancelAppointment(appointment)}
-                        className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-600 transition-colors hover:bg-rose-100"
+                        disabled={status.key === 'past'}
+                        title={status.key === 'past' ? '지난 예약은 취소할 수 없습니다.' : undefined}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-black transition-colors ${
+                          status.key === 'past'
+                            ? 'cursor-not-allowed bg-slate-100 text-slate-400'
+                            : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                        }`}
                       >
-                        예약 취소
+                        {status.key === 'past' ? '취소 불가' : '예약 취소'}
                       </button>
                     </td>
                   </tr>
@@ -236,6 +249,7 @@ export default function AppointmentCheckPage() {
 function getReservationStatus(appointment) {
   if (!appointment.dateTime) {
     return {
+      key: 'upcoming',
       label: '예정',
       className: 'bg-blue-100 text-blue-700',
     };
@@ -245,12 +259,14 @@ function getReservationStatus(appointment) {
 
   if (!Number.isNaN(reservationDate.getTime()) && reservationDate < new Date()) {
     return {
+      key: 'past',
       label: '지난 예약',
       className: 'bg-emerald-100 text-emerald-700',
     };
   }
 
   return {
+    key: 'upcoming',
     label: '예정',
     className: 'bg-blue-100 text-blue-700',
   };

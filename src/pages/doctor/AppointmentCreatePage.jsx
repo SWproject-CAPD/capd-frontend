@@ -51,6 +51,11 @@ export default function AppointmentCreatePage() {
       return;
     }
 
+    if (formData.date < todayKey) {
+      alert('오늘 이전 날짜로는 예약을 등록할 수 없습니다.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -127,6 +132,7 @@ export default function AppointmentCreatePage() {
                     type="date"
                     name="date"
                     value={formData.date}
+                    min={todayKey}
                     onChange={handleChange}
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-black outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     required
