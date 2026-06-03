@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 export default function PasswordInput({
   label,
   error,
+  feedback,
   className = '',
   ...props
 }) {
   const [isVisible, setIsVisible] = useState(false);
+  const feedbackClassName = feedback?.type === 'success' ? 'text-emerald-600' : 'text-red-500';
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -28,6 +30,9 @@ export default function PasswordInput({
         </button>
       </div>
       {error && <span className="text-xs font-medium text-red-500">{error}</span>}
+      {!error && feedback && (
+        <span className={`text-xs font-bold ${feedbackClassName}`}>{feedback.message}</span>
+      )}
     </div>
   );
 }

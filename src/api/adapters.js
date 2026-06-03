@@ -113,6 +113,15 @@ export const localTimeToString = (value) => {
   return `${pad2(value.hour ?? 0)}:${pad2(value.minute ?? 0)}`;
 };
 
+export const formatPhoneNumber = (value) => {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+};
+
 export const normalizeSex = (sex) => {
   if (sex === 'M' || sex === 'male' || sex === '남') return '남';
   if (sex === 'F' || sex === 'female' || sex === '여') return '여';

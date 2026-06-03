@@ -5,7 +5,8 @@ import Input from '../components/Input';
 import PasswordInput from '../components/PasswordInput';
 import Button from '../components/Button';
 import { patientApi, userApi } from '../api/apiClient';
-import { toApiSex } from '../api/adapters';
+import { formatPhoneNumber, toApiSex } from '../api/adapters';
+import { getPasswordFeedback, isValidPassword, PASSWORD_GUIDE } from '../utils/passwordValidation';
 
 export default function PatientRegister() {
   const navigate = useNavigate();
@@ -26,11 +27,18 @@ export default function PatientRegister() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordFeedback = getPasswordFeedback(formData.password);
+  const confirmPasswordFeedback = formData.confirmPassword
+    ? formData.password === formData.confirmPassword
+      ? { type: 'success', message: '비밀번호가 일치합니다.' }
+      : { type: 'error', message: '비밀번호가 일치하지 않습니다.' }
+    : null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const nextValue = name === 'phone' ? formatPhoneNumber(value) : value;
 
-    setFormData({ ...formData, [name]: value });
+    setFormData({ ...formData, [name]: nextValue });
 
     if (name === 'email') {
       setEmailCode('');
@@ -87,6 +95,11 @@ export default function PatientRegister() {
 
     if (formData.password !== formData.confirmPassword) {
       alert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (!isValidPassword(formData.password)) {
+      alert(PASSWORD_GUIDE);
       return;
     }
 
@@ -156,6 +169,9 @@ export default function PatientRegister() {
             label="전화번호"
             name="phone"
             placeholder="010-0000-0000"
+            value={formData.phone}
+            inputMode="numeric"
+            maxLength={13}
             onChange={handleChange}
             required
           />
@@ -215,8 +231,10 @@ export default function PatientRegister() {
           <PasswordInput
             label="비밀번호"
             name="password"
-            placeholder="8자 이상 입력"
+            placeholder="영어, 숫자, 특수문자 포함 8~20자"
+            value={formData.password}
             onChange={handleChange}
+            feedback={passwordFeedback}
             required
           />
 
@@ -224,7 +242,9 @@ export default function PatientRegister() {
             label="비밀번호 확인"
             name="confirmPassword"
             placeholder="비밀번호 재입력"
+            value={formData.confirmPassword}
             onChange={handleChange}
+            feedback={confirmPasswordFeedback}
             required
           />
 

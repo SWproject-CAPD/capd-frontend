@@ -1,11 +1,24 @@
 import React from 'react';
-import { Outlet, useNavigate, NavLink, Link } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
 import { authApi } from '../api/apiClient';
+import { usePatientReservations } from '../hooks/usePatientData';
+
+const DOCTOR_REQUIRED_ALLOWED_PATHS = ['/patient', '/patient/record', '/patient/record_list'];
 
 export default function PatientLayout() {
   const { user, logout } = useAppStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { data: reservations = [], isLoading: isReservationsLoading } = usePatientReservations();
+  const hasAssignedDoctor = reservations.some(reservation => (
+    reservation.doctorName && reservation.doctorName !== '-'
+  ));
+  const canUseCurrentPage = (
+    isReservationsLoading ||
+    hasAssignedDoctor ||
+    DOCTOR_REQUIRED_ALLOWED_PATHS.includes(location.pathname)
+  );
 
   const handleLogout = async () => {
     try {
@@ -105,7 +118,7 @@ export default function PatientLayout() {
         {/* 우측 메인 콘텐츠 영역 */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative w-full">
           <div className="max-w-5xl mx-auto h-full">
-            <Outlet /> 
+            {canUseCurrentPage ? <Outlet /> : <PatientDoctorRequiredNotice />}
           </div>
         </main>
         
@@ -135,6 +148,36 @@ export default function PatientLayout() {
         ))}
       </nav>
 
+    </div>
+  );
+}
+
+function PatientDoctorRequiredNotice() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex min-h-full items-center justify-center py-10 animate-in fade-in duration-300">
+      <section className="w-full max-w-xl rounded-4xl border border-blue-100 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50 text-3xl font-black text-blue-600">
+          i
+        </div>
+        <h1 className="mt-5 text-2xl font-black text-slate-900">
+          담당의사가 아직 없습니다
+        </h1>
+        <p className="mt-3 text-sm font-bold leading-relaxed text-slate-500">
+          담당의사가 등록되면 이 기능을 사용할 수 있습니다.
+          <br />
+          현재는 투석 기록하기와 투석 기록보기 기능만 이용할 수 있습니다.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => navigate('/patient')}
+          className="mt-6 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-blue-700"
+        >
+          홈으로 돌아가기
+        </button>
+      </section>
     </div>
   );
 }

@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import Button from './Button';
 import PasswordInput from './PasswordInput';
 import { userApi } from '../api/apiClient';
-
-const PASSWORD_GUIDE = '영문, 숫자, 특수문자를 포함해 8~20자로 입력해 주세요.';
-const PASSWORD_PATTERN = /(?=.*[0-9])(?=.*[a-zA-Z])(?=.*\W)(?=\S+$).{8,20}/;
+import { getPasswordFeedback, isValidPassword, PASSWORD_GUIDE } from '../utils/passwordValidation';
 
 export default function PasswordChangeModal({ onClose }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -12,12 +10,18 @@ export default function PasswordChangeModal({ onClose }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const newPasswordFeedback = getPasswordFeedback(newPassword);
+  const confirmPasswordFeedback = confirmPassword
+    ? newPassword === confirmPassword
+      ? { type: 'success', message: '비밀번호가 일치합니다.' }
+      : { type: 'error', message: '비밀번호가 일치하지 않습니다.' }
+    : null;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
-    if (!PASSWORD_PATTERN.test(newPassword)) {
+    if (!isValidPassword(newPassword)) {
       setError(PASSWORD_GUIDE);
       return;
     }
@@ -73,13 +77,15 @@ export default function PasswordChangeModal({ onClose }) {
             label="새 비밀번호"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
-            placeholder={PASSWORD_GUIDE}
+            placeholder="영어, 숫자, 특수문자 포함 8~20자"
+            feedback={newPasswordFeedback}
             required
           />
           <PasswordInput
             label="새 비밀번호 확인"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
+            feedback={confirmPasswordFeedback}
             required
           />
 
