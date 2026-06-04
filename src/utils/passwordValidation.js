@@ -1,4 +1,4 @@
-export const PASSWORD_GUIDE = '영어, 숫자, 특수문자 포함 8~20자로 입력해야 됩니다.';
+export const PASSWORD_GUIDE = '영문 대소문자, 숫자, 특수문자를 포함하여 8~20자로 입력해 주세요.';
 export const PASSWORD_VALID_MESSAGE = '사용 가능한 비밀번호입니다.';
 export const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,20}$/;
 
