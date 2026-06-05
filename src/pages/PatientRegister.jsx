@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import PasswordInput from '../components/PasswordInput';
+import BirthDateInput from '../components/BirthDateInput';
 import Button from '../components/Button';
 import { patientApi, userApi } from '../api/apiClient';
 import { formatPhoneNumber, toApiSex } from '../api/adapters';
+import { normalizeBirthDate } from '../utils/birthDate';
 import { getPasswordFeedback, isValidPassword, PASSWORD_GUIDE } from '../utils/passwordValidation';
 
 export default function PatientRegister() {
@@ -16,7 +18,11 @@ export default function PatientRegister() {
     password: '',        // 비밀번호
     confirmPassword: '', // 비밀번호 확인
     name: '',            // 이름
-    age: '',             // 나이
+    birthDate: {
+      year: '',
+      month: '',
+      day: '',
+    },
     phone: '',           // 전화번호
     gender: 'male',      // 성별
   });
@@ -27,6 +33,7 @@ export default function PatientRegister() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [birthDateTouched, setBirthDateTouched] = useState(false);
   const passwordFeedback = getPasswordFeedback(formData.password);
   const confirmPasswordFeedback = formData.confirmPassword
     ? formData.password === formData.confirmPassword
@@ -45,6 +52,11 @@ export default function PatientRegister() {
       setEmailSent(false);
       setEmailVerified(false);
     }
+  };
+
+  const handleBirthDateChange = (nextBirthDate) => {
+    setBirthDateTouched(true);
+    setFormData({ ...formData, birthDate: nextBirthDate });
   };
 
   const handleSendEmailCode = async () => {
@@ -108,6 +120,14 @@ export default function PatientRegister() {
       return;
     }
 
+    const birthDate = normalizeBirthDate(formData.birthDate);
+
+    if (!birthDate) {
+      setBirthDateTouched(true);
+      alert('생년월일을 올바르게 입력해주세요.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -117,7 +137,7 @@ export default function PatientRegister() {
         password: formData.password,
         phone: formData.phone,
         sex: toApiSex(formData.gender),
-        age: Number(formData.age),
+        birthDate,
       });
 
       alert('환자 회원가입이 완료되었습니다. 로그인해주세요.');
@@ -142,28 +162,25 @@ export default function PatientRegister() {
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="나이"
-              name="age"
-              placeholder="숫자만 입력"
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-gray-700">성별</label>
+            <select
+              name="gender"
+              className="border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 bg-white"
               onChange={handleChange}
-              required
-            />
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-700">성별</label>
-              <select
-                name="gender"
-                className="border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 bg-white"
-                onChange={handleChange}
-                value={formData.gender}
-              >
-                <option value="male">남성</option>
-                <option value="female">여성</option>
-              </select>
-            </div>
+              value={formData.gender}
+            >
+              <option value="male">남성</option>
+              <option value="female">여성</option>
+            </select>
           </div>
+
+          <BirthDateInput
+            value={formData.birthDate}
+            onChange={handleBirthDateChange}
+            showError={birthDateTouched}
+            idPrefix="patient-birth-date"
+          />
 
           <Input
             label="전화번호"
@@ -231,7 +248,7 @@ export default function PatientRegister() {
           <PasswordInput
             label="비밀번호"
             name="password"
-            placeholder="영어, 숫자, 특수문자 포함 8~20자"
+            placeholder="영문 대소문자, 숫자, 특수문자를 포함하여 8~20자"
             value={formData.password}
             onChange={handleChange}
             feedback={passwordFeedback}

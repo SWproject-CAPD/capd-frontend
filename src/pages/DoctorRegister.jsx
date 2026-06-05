@@ -17,9 +17,7 @@ export default function DoctorRegister() {
     password: '',     // 비밀번호
     confirmPassword: '', // 비밀번호 확인
     name: '',         // 이름
-    age: '',          // 나이
     phone: '',        // 전화번호
-    gender: 'male',   // 성별
   });
 
   const [emailCode, setEmailCode] = useState('');
@@ -150,29 +148,6 @@ export default function DoctorRegister() {
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="나이"
-              name="age"
-              placeholder="숫자만 입력"
-              onChange={handleChange}
-              required
-            />
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-700">성별</label>
-              <select
-                name="gender"
-                className="border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 bg-white"
-                onChange={handleChange}
-                value={formData.gender}
-              >
-                <option value="male">남성</option>
-                <option value="female">여성</option>
-              </select>
-            </div>
-          </div>
-
           <Input
             label="전화번호"
             name="phone"
@@ -239,7 +214,7 @@ export default function DoctorRegister() {
           <PasswordInput
             label="비밀번호"
             name="password"
-            placeholder="영어, 숫자, 특수문자 포함 8~20자"
+            placeholder="영문 대소문자, 숫자, 특수문자를 포함하여 8~20자"
             value={formData.password}
             onChange={handleChange}
             feedback={passwordFeedback}

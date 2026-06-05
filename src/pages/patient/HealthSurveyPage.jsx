@@ -4,7 +4,7 @@ import { surveyApi } from '../../api/apiClient';
 import { getUpcomingReservation, usePatientAnswers, usePatientQuestions, usePatientReservations } from '../../hooks/usePatientData';
 
 const SURVEY_DEADLINE_MESSAGE = '예약 전날까지만 작성 가능합니다.';
-const SUBMITTED_SURVEY_MESSAGE = '이미 제출한 설문입니다. 아래에서 제출했던 답변을 확인할 수 있습니다.';
+const SUBMITTED_QUESTION_MESSAGE = '이미 답변한 질문입니다. 제출했던 답변을 확인할 수 있습니다.';
 
 export default function HealthSurveyPage() {
   const navigate = useNavigate();
@@ -30,42 +30,35 @@ export default function HealthSurveyPage() {
   const [surveyStatusByReservationId, setSurveyStatusByReservationId] = useState({});
 
   const activeReservationKey = String(activeReservation?.reservationId || '');
-  const draftAnswers = answersByReservationId[activeReservationKey] || {};
-  const questionAnswerMap = useMemo(() => (
-    surveyQuestions.reduce((acc, question) => {
-      const submittedValue = question.answer || '';
-
-      if ((question.answered || submittedValue) && question.questionId) {
-        acc[String(question.questionId)] = submittedValue;
-      }
-
-      if ((question.answered || submittedValue) && question.text) {
-        acc[`question:${question.text}`] = submittedValue;
-      }
-
-      return acc;
-    }, {})
-  ), [surveyQuestions]);
-  const submittedAnswerMap = useMemo(() => (
-    submittedAnswers.reduce((acc, answer) => {
-      const submittedValue = answer.answer || '';
-
-      if (answer.questionId) acc[String(answer.questionId)] = submittedValue;
-      if (answer.question) acc[`question:${answer.question}`] = submittedValue;
-
-      return acc;
-    }, { ...questionAnswerMap })
-  ), [questionAnswerMap, submittedAnswers]);
-  const hasSubmittedSurvey = submittedAnswers.length > 0 || surveyQuestions.some(question => question.answered || question.answer);
-  const visibleAnswers = hasSubmittedSurvey ? submittedAnswerMap : draftAnswers;
+  const draftAnswers = useMemo(
+    () => answersByReservationId[activeReservationKey] || {},
+    [activeReservationKey, answersByReservationId],
+  );
+  const submittedAnswerMap = useMemo(
+    () => buildSubmittedAnswerMap(surveyQuestions, submittedAnswers),
+    [submittedAnswers, surveyQuestions],
+  );
+  const visibleAnswers = useMemo(
+    () => ({ ...submittedAnswerMap, ...draftAnswers }),
+    [draftAnswers, submittedAnswerMap],
+  );
   const canWriteSurvey = isBeforeAppointmentDate(activeReservation?.date);
-  const isSurveyDisabled = !canWriteSurvey || hasSubmittedSurvey;
+  const pendingQuestions = useMemo(
+    () => surveyQuestions.filter(question => !isQuestionAlreadyAnswered(question, submittedAnswerMap)),
+    [submittedAnswerMap, surveyQuestions],
+  );
+  const submittedQuestionCount = surveyQuestions.length - pendingQuestions.length;
   const answeredCount = surveyQuestions.filter(question => (
-    getVisibleAnswer(question, visibleAnswers) !== undefined &&
-    getVisibleAnswer(question, visibleAnswers) !== ''
+    isQuestionAlreadyAnswered(question, submittedAnswerMap) ||
+    hasNonEmptyVisibleAnswer(question, visibleAnswers)
   )).length;
-  const isAllAnswered = surveyQuestions.length > 0 && answeredCount === surveyQuestions.length;
-  const canSubmitSurvey = isAllAnswered && canWriteSurvey && !hasSubmittedSurvey;
+  const pendingAnsweredCount = pendingQuestions.filter(question => (
+    hasNonEmptyVisibleAnswer(question, visibleAnswers)
+  )).length;
+  const hasAnsweredQuestions = submittedQuestionCount > 0;
+  const hasPendingQuestions = pendingQuestions.length > 0;
+  const isSurveyComplete = surveyQuestions.length > 0 && !hasPendingQuestions;
+  const canSubmitSurvey = canWriteSurvey && hasPendingQuestions && pendingAnsweredCount === pendingQuestions.length;
 
   useEffect(() => {
     let ignore = false;
@@ -88,12 +81,8 @@ export default function HealthSurveyPage() {
             surveyApi.getPatientQuestions(reservationId).catch(emptyOnNotFound),
             surveyApi.getPatientAnswers(reservationId).catch(emptyOnNotFound),
           ]);
-          const hasAnswers = (
-            (answers || []).length > 0 ||
-            (questions || []).some(question => question.answered || question.answer)
-          );
 
-          return [String(reservationId), hasAnswers ? 'submitted' : 'available'];
+          return [String(reservationId), getSurveyCompletionState(questions || [], answers || [])];
         } catch {
           return [String(reservationId), 'available'];
         }
@@ -114,20 +103,29 @@ export default function HealthSurveyPage() {
   const headerMessage = useMemo(() => {
     if (isReservationsLoading || isQuestionsLoading) return '설문 정보를 불러오는 중입니다.';
     if (!activeReservation) return '예정된 예약이 없어 작성할 설문이 없습니다.';
-    if (hasSubmittedSurvey) return SUBMITTED_SURVEY_MESSAGE;
-    if (!canWriteSurvey) return '예약일이 지나 설문을 작성할 수 없습니다.';
     if (surveyQuestions.length === 0) return '현재 승인된 설문 문항이 없습니다.';
-    return `현재 느끼는 증상을 있는 그대로 선택해 주세요. ${SURVEY_DEADLINE_MESSAGE}`;
-  }, [activeReservation, canWriteSurvey, hasSubmittedSurvey, isQuestionsLoading, isReservationsLoading, surveyQuestions.length]);
+    if (!canWriteSurvey) return '예약일이 지나 설문을 작성할 수 없습니다. 문항과 기존 답변은 확인할 수 있습니다.';
+    if (isSurveyComplete) return '이미 답변한 설문입니다. 제출했던 답변을 아래에서 확인할 수 있습니다.';
+    if (hasAnsweredQuestions) return '이미 답변한 질문과 새 질문이 함께 있습니다. 답변하지 않은 질문만 추가로 작성해 주세요.';
+    return `현재 겪는 증상이 있는 그대로 답변해 주세요. ${SURVEY_DEADLINE_MESSAGE}`;
+  }, [
+    activeReservation,
+    canWriteSurvey,
+    hasAnsweredQuestions,
+    isQuestionsLoading,
+    isReservationsLoading,
+    isSurveyComplete,
+    surveyQuestions.length,
+  ]);
 
-  const handleAnswer = (questionId, value) => {
-    if (isSurveyDisabled || !activeReservationKey) return;
+  const handleAnswer = (question, value) => {
+    if (!canWriteSurvey || !activeReservationKey || isQuestionAlreadyAnswered(question, submittedAnswerMap)) return;
 
     setAnswersByReservationId(prev => ({
       ...prev,
       [activeReservationKey]: {
         ...(prev[activeReservationKey] || {}),
-        [String(questionId)]: value,
+        [String(question.questionId)]: value,
       },
     }));
   };
@@ -153,15 +151,19 @@ export default function HealthSurveyPage() {
 
     try {
       await surveyApi.submitAnswers(activeReservation.reservationId, {
-        answers: surveyQuestions.map(question => ({
+        answers: pendingQuestions.map(question => ({
           questionId: Number(question.questionId),
           answer: String(draftAnswers[String(question.questionId)]),
         })),
       });
 
-      alert('설문이 성공적으로 담당 의료진에게 전달되었습니다.\n작성한 내용은 이 화면에서 다시 확인할 수 있습니다.');
+      alert('답변이 성공적으로 담당 의료진에게 전달되었습니다.\n작성한 내용은 이 화면에서 다시 확인할 수 있습니다.');
       await reload();
       await reloadSubmittedAnswers();
+      setAnswersByReservationId(prev => ({
+        ...prev,
+        [activeReservationKey]: {},
+      }));
       setSurveyStatusByReservationId(prev => ({
         ...prev,
         [String(activeReservation.reservationId)]: 'submitted',
@@ -251,131 +253,148 @@ export default function HealthSurveyPage() {
         </div>
       </section>
 
-      {!canWriteSurvey && !hasSubmittedSurvey ? (
+      {surveyQuestions.length === 0 && !isQuestionsLoading ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-black text-slate-500">
             !
           </div>
-          <h2 className="text-2xl font-black text-slate-900">질문 마감되었습니다</h2>
+          <h2 className="text-2xl font-black text-slate-900">작성할 질문이 없습니다</h2>
           <p className="mt-3 text-sm font-medium leading-relaxed text-slate-500">
-            이 예약 건의 설문 작성 기간이 지나 더 이상 답변할 수 없습니다.
+            아직 의료진이 승인한 설문 문항이 없습니다.
           </p>
         </section>
       ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4"
-          title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
-        >
-          {hasSubmittedSurvey && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {hasAnsweredQuestions && (
             <section className="rounded-3xl border border-emerald-100 bg-emerald-50 px-5 py-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-lg font-black text-emerald-700">
                   ✓
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-slate-900">이미 답변한 설문입니다</h2>
+                  <h2 className="text-base font-black text-slate-900">
+                    {hasPendingQuestions ? '일부 질문은 이미 답변했습니다' : '이미 답변한 설문입니다'}
+                  </h2>
                   <p className="mt-1 text-sm font-bold leading-relaxed text-emerald-700">
-                    제출했던 답변을 아래에서 확인할 수 있습니다. 이미 제출한 설문은 다시 수정할 수 없습니다.
+                    답변한 질문은 수정할 수 없고, 새로 추가된 미답변 질문만 작성할 수 있습니다.
                   </p>
                 </div>
               </div>
             </section>
           )}
+
           {surveyQuestions.map((question, index) => {
-          const isHelpOpen = openHelpQuestionId === question.questionId;
-          const answerValue = getVisibleAnswer(question, visibleAnswers) || '';
+            const isHelpOpen = openHelpQuestionId === question.questionId;
+            const answerValue = getVisibleAnswer(question, visibleAnswers) || '';
+            const isAnsweredQuestion = isQuestionAlreadyAnswered(question, submittedAnswerMap);
+            const isQuestionDisabled = !canWriteSurvey || isAnsweredQuestion;
+            const questionTitle = isAnsweredQuestion
+              ? SUBMITTED_QUESTION_MESSAGE
+              : !canWriteSurvey
+                ? SURVEY_DEADLINE_MESSAGE
+                : undefined;
 
-          return (
-            <section key={question.questionId} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-              <div className="mb-5 flex items-start justify-between gap-3">
-                <div className="flex min-w-0 gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-sm font-black text-emerald-700">
-                    {index + 1}
-                  </span>
-                  <h2 className="text-base font-black leading-relaxed text-slate-900 md:text-lg">
-                    {question.text}
-                    <span className="ml-1 text-red-500">*</span>
-                  </h2>
+            return (
+              <section key={question.questionId} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm md:p-6">
+                <div className="mb-5 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-sm font-black text-emerald-700">
+                      {index + 1}
+                    </span>
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        {isAnsweredQuestion && (
+                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-600">
+                            답변 완료
+                          </span>
+                        )}
+                        {!canWriteSurvey && !isAnsweredQuestion && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-500">
+                            작성 마감
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-base font-black leading-relaxed text-slate-900 md:text-lg">
+                        {question.text}
+                        {!isAnsweredQuestion && <span className="ml-1 text-red-500">*</span>}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuestionHelpClick(question.questionId)}
+                    title="질문을 쉽게 설명해드려요"
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border text-sm font-black transition-all active:scale-95 ${
+                      isHelpOpen
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600'
+                    }`}
+                  >
+                    ?
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleQuestionHelpClick(question.questionId)}
-                  title="질문을 쉽게 설명해드려요"
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border text-sm font-black transition-all active:scale-95 ${
-                    isHelpOpen
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600'
-                  }`}
-                >
-                  ?
-                </button>
-              </div>
+                {isHelpOpen && (
+                  <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                    <div className="mb-1 text-[11px] font-black text-emerald-600">질문 쉬운 설명</div>
+                    <p className="text-sm font-medium leading-relaxed text-emerald-800">
+                      {helpTextByQuestionId[question.questionId] || '질문 설명을 불러오는 중입니다.'}
+                    </p>
+                  </div>
+                )}
 
-              {isHelpOpen && (
-                <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                  <div className="mb-1 text-[11px] font-black text-emerald-600">질문 쉬운 설명</div>
-                  <p className="text-sm font-medium leading-relaxed text-emerald-800">
-                    {helpTextByQuestionId[question.questionId] || '질문 설명을 불러오는 중입니다.'}
-                  </p>
-                </div>
-              )}
+                {question.options.length > 0 ? (
+                  <div className={`grid grid-cols-1 gap-2 ${question.options.length <= 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-5'}`}>
+                    {question.options.map(option => (
+                      <ChoiceButton
+                        key={option}
+                        active={answerValue === option}
+                        disabled={isQuestionDisabled}
+                        title={questionTitle}
+                        onClick={() => handleAnswer(question, option)}
+                      >
+                        {option}
+                      </ChoiceButton>
+                    ))}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={answerValue}
+                    onChange={(e) => handleAnswer(question, e.target.value)}
+                    placeholder="답변을 입력해 주세요"
+                    disabled={isQuestionDisabled}
+                    title={questionTitle}
+                    className={`w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold outline-none transition-all ${
+                      isQuestionDisabled
+                        ? 'cursor-not-allowed text-slate-500'
+                        : 'focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'
+                    }`}
+                  />
+                )}
+              </section>
+            );
+          })}
 
-              {question.options.length > 0 ? (
-                <div className={`grid grid-cols-1 gap-2 ${question.options.length <= 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-5'}`}>
-                  {question.options.map(option => (
-                    <ChoiceButton
-                      key={option}
-                      active={answerValue === option}
-                      disabled={isSurveyDisabled}
-                      title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
-                      onClick={() => handleAnswer(question.questionId, option)}
-                    >
-                      {option}
-                    </ChoiceButton>
-                  ))}
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={answerValue}
-                  onChange={(e) => handleAnswer(question.questionId, e.target.value)}
-                  placeholder="응답을 입력해주세요"
-                  disabled={isSurveyDisabled}
-                  title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
-                  className={`w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold outline-none transition-all ${
-                    isSurveyDisabled
-                      ? 'cursor-not-allowed text-slate-500'
-                      : 'focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'
-                  }`}
-                />
-              )}
-
-            </section>
-          );
-        })}
-
-        <button
-          type="submit"
-          disabled={!canSubmitSurvey || isSubmitting}
-          title={hasSubmittedSurvey ? SUBMITTED_SURVEY_MESSAGE : isSurveyDisabled ? SURVEY_DEADLINE_MESSAGE : undefined}
-          className={`sticky bottom-20 z-20 w-full rounded-2xl py-5 text-lg font-black shadow-lg transition-all md:static ${
-            canSubmitSurvey
-              ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.99]'
-              : 'bg-slate-200 text-slate-400'
-          } ${isSurveyDisabled ? 'cursor-not-allowed' : ''}`}
-        >
-          {isSubmitting
-            ? '제출 중입니다'
-            : hasSubmittedSurvey
-              ? '제출 완료'
-              : isSurveyDisabled
-              ? '예약 전날까지만 작성 가능합니다'
-              : isAllAnswered
-                ? '의료진에게 제출하기'
-                : '모든 문항에 응답해 주세요'}
-        </button>
+          <button
+            type="submit"
+            disabled={!canSubmitSurvey || isSubmitting}
+            title={!canWriteSurvey ? SURVEY_DEADLINE_MESSAGE : undefined}
+            className={`sticky bottom-20 z-20 w-full rounded-2xl py-5 text-lg font-black shadow-lg transition-all md:static ${
+              canSubmitSurvey
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.99]'
+                : 'bg-slate-200 text-slate-400'
+            } ${!canSubmitSurvey ? 'cursor-not-allowed' : ''}`}
+          >
+            {getSubmitButtonLabel({
+              canWriteSurvey,
+              hasPendingQuestions,
+              isSubmitting,
+              isSurveyComplete,
+              canSubmitSurvey,
+            })}
+          </button>
         </form>
       )}
     </div>
@@ -404,17 +423,99 @@ function ChoiceButton({ active, disabled, title, onClick, children }) {
   );
 }
 
+function getSubmitButtonLabel({ canWriteSurvey, hasPendingQuestions, isSubmitting, isSurveyComplete, canSubmitSurvey }) {
+  if (isSubmitting) return '제출 중입니다';
+  if (!canWriteSurvey) return '작성 마감';
+  if (isSurveyComplete) return '제출 완료';
+  if (canSubmitSurvey) return '미답변 질문 제출하기';
+  if (hasPendingQuestions) return '미답변 질문에 답변해 주세요';
+  return '제출할 질문이 없습니다';
+}
+
 function getVisibleAnswer(question, answers) {
-  const keys = [
-    String(question.questionId),
-    String(question.id),
-    `question:${question.text}`,
-    `question:${question.question}`,
-  ];
+  const keys = getQuestionKeys(question);
 
   return keys.reduce((foundAnswer, key) => (
     foundAnswer !== undefined ? foundAnswer : answers[key]
   ), undefined);
+}
+
+function hasNonEmptyVisibleAnswer(question, answers) {
+  const answer = getVisibleAnswer(question, answers);
+  return answer !== undefined && String(answer).trim() !== '';
+}
+
+function isQuestionAlreadyAnswered(question, submittedAnswerMap) {
+  if (question.answered) return true;
+  if (question.answer !== undefined && question.answer !== null && String(question.answer).trim() !== '') return true;
+
+  return getQuestionKeys(question).some(key => Object.prototype.hasOwnProperty.call(submittedAnswerMap, key));
+}
+
+function buildSubmittedAnswerMap(questions = [], answers = []) {
+  const map = {};
+
+  questions.forEach((question) => {
+    if (!question.answered && !hasValue(question.answer)) return;
+
+    const value = question.answer ?? '';
+    getQuestionKeys(question).forEach((key) => {
+      map[key] = value;
+    });
+  });
+
+  answers.forEach((answer) => {
+    const value = getAnswerValue(answer);
+    getAnswerKeys(answer).forEach((key) => {
+      map[key] = value;
+    });
+  });
+
+  return map;
+}
+
+function getSurveyCompletionState(questions = [], answers = []) {
+  if (questions.length === 0) return 'available';
+
+  const answerMap = buildSubmittedAnswerMap(questions, answers);
+  const answeredCount = questions.filter(question => isQuestionAlreadyAnswered(question, answerMap)).length;
+
+  if (answeredCount === 0) return 'available';
+  if (answeredCount < questions.length) return 'partial';
+  return 'submitted';
+}
+
+function getQuestionKeys(question = {}) {
+  const id = question.questionId ?? question.id;
+  const text = question.text ?? question.question;
+  const keys = [];
+
+  if (id !== undefined && id !== null) keys.push(String(id));
+  if (text) keys.push(`question:${text}`);
+
+  return keys;
+}
+
+function getAnswerKeys(answer = {}) {
+  const questionData = typeof answer.question === 'object' ? answer.question : answer.surveyQuestion;
+  const id = answer.questionId ?? answer.surveyQuestionId ?? questionData?.questionId ?? questionData?.id;
+  const text = typeof answer.question === 'string'
+    ? answer.question
+    : questionData?.question || answer.questionText;
+  const keys = [];
+
+  if (id !== undefined && id !== null) keys.push(String(id));
+  if (text) keys.push(`question:${text}`);
+
+  return keys;
+}
+
+function getAnswerValue(answer = {}) {
+  return answer.answer ?? answer.content ?? answer.response ?? answer.value ?? '';
+}
+
+function hasValue(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
 function isBeforeAppointmentDate(appointmentDate) {
@@ -443,6 +544,14 @@ function getReservationSurveyStatus(reservation, storedStatus) {
       key: 'submitted',
       label: '작성 완료',
       className: 'text-blue-500',
+    };
+  }
+
+  if (storedStatus === 'partial') {
+    return {
+      key: 'partial',
+      label: '추가 답변 가능',
+      className: 'text-amber-500',
     };
   }
 

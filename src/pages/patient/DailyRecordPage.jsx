@@ -323,14 +323,14 @@ export default function DailyRecordPage() {
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
           <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="text-yellow-500">📝</span> 하루 메모
+            <span className="text-yellow-500">📝</span> 특이사항
           </h2>
           <textarea
             name="memo"
             value={dailyInfo.memo}
             onChange={handleDailyChange}
             onBlur={handleBlur}
-            placeholder="오늘의 특이사항이나 컨디션을 적어주세요."
+            placeholder="오늘의 특이사항이나 궁금한 점을 적어주세요. 담당 의사 선생님께 전달됩니다."
             className="w-full h-24 bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
           />
         </div>
