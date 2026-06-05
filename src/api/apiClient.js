@@ -164,11 +164,13 @@ export const authApi = {
     method: 'post',
     url: ENDPOINTS.auth.patientTokens,
     data: payload,
+    skipAuthRefresh: true,
   }),
   loginDoctor: (payload) => apiRequest({
     method: 'post',
     url: ENDPOINTS.auth.doctorTokens,
     data: payload,
+    skipAuthRefresh: true,
   }),
   logoutPatient: () => apiRequest({
     method: 'delete',
