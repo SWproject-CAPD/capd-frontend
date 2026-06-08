@@ -4,7 +4,7 @@ import useAppStore from '../store/useAppStore';
 import { authApi } from '../api/apiClient';
 import { usePatientReservations } from '../hooks/usePatientData';
 
-const DOCTOR_REQUIRED_ALLOWED_PATHS = ['/patient', '/patient/record', '/patient/record_list'];
+const DOCTOR_REQUIRED_ALLOWED_PATHS = ['/patient', '/patient/record', '/patient/record_list', '/patient/mypage'];
 
 export default function PatientLayout() {
   const { user, logout } = useAppStore();
@@ -167,7 +167,7 @@ function PatientDoctorRequiredNotice() {
         <p className="mt-3 text-sm font-bold leading-relaxed text-slate-500">
           담당의사가 등록되면 이 기능을 사용할 수 있습니다.
           <br />
-          현재는 투석 기록하기와 투석 기록보기 기능만 이용할 수 있습니다.
+          현재는 투석 기록하기, 투석 기록보기, 내정보 기능만 이용할 수 있습니다.
         </p>
 
         <button
