@@ -220,7 +220,7 @@ export default function DailyRecordPage() {
           <div className="space-y-5 bg-slate-50/50 p-4 rounded-xl border border-gray-100 mb-6">
             <div className="grid grid-cols-2 gap-4">
               <Field label="교환 시각">
-                <input type="time" name="time" value={currentExchange.time} onChange={handleExchangeChange} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input type="time" name="time" value={currentExchange.time} onChange={handleExchangeChange} className="ios-fixed-time-input h-12 min-h-12 w-full min-w-0 appearance-none bg-white border border-gray-200 rounded-xl px-3 text-base leading-none focus:ring-2 focus:ring-blue-500 outline-none" />
               </Field>
               <Field label="투석액 농도 (%)">
                 <select name="concentration" value={currentExchange.concentration} onChange={handleExchangeChange} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none">
@@ -346,7 +346,7 @@ export default function DailyRecordPage() {
 
 function Field({ label, children }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="block text-xs font-bold text-gray-700 mb-2">{label}</label>
       {children}
     </div>
