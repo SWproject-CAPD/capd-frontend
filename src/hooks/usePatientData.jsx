@@ -306,8 +306,29 @@ export function getLatestRecord(records = []) {
 }
 
 export function getUpcomingReservation(reservations = []) {
-  const today = toDateKey();
-  return reservations.find(reservation => reservation.date >= today) || reservations[0] || null;
+  const now = new Date();
+
+  return reservations
+    .map(reservation => ({
+      reservation,
+      reservationTime: getReservationTimeValue(reservation),
+    }))
+    .filter(({ reservationTime }) => reservationTime >= now.getTime())
+    .sort((a, b) => a.reservationTime - b.reservationTime)[0]?.reservation || null;
+}
+
+function getReservationTimeValue(reservation = {}) {
+  if (reservation.dateTime) {
+    const dateTime = new Date(reservation.dateTime);
+    if (!Number.isNaN(dateTime.getTime())) return dateTime.getTime();
+  }
+
+  if (!reservation.date || reservation.date === '-') return 0;
+
+  const time = reservation.time && reservation.time !== '-' ? reservation.time : '00:00';
+  const dateTime = new Date(`${reservation.date}T${String(time).slice(0, 5)}:00`);
+
+  return Number.isNaN(dateTime.getTime()) ? 0 : dateTime.getTime();
 }
 
 function dedupeReservations(reservations) {
