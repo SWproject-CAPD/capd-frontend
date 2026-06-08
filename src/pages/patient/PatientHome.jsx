@@ -1,14 +1,27 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../../store/useAppStore';
-import { getUpcomingReservation, usePatientMe, usePatientReservations } from '../../hooks/usePatientData';
+import {
+  getLatestRecord,
+  getUpcomingReservation,
+  usePatientCapdRecords,
+  usePatientMe,
+  usePatientReservations,
+} from '../../hooks/usePatientData';
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
   const { user } = useAppStore(); 
   const { data: patient } = usePatientMe();
   const { data: reservations = [] } = usePatientReservations();
+  const { data: records = [] } = usePatientCapdRecords();
   const upcomingReservation = getUpcomingReservation(reservations);
+  const latestRecord = getLatestRecord(records);
+  const latestRecordSessions = latestRecord?.sessions || [];
+  const latestRecordTime = latestRecordSessions[latestRecordSessions.length - 1]?.time;
+  const latestRecordLabel = latestRecord
+    ? [latestRecord.date, latestRecordTime].filter(Boolean).join(' ')
+    : '기록 없음';
   const displayName = patient?.name || user?.name || '환자';
 
   return (
@@ -34,7 +47,7 @@ export default function PatientDashboard() {
           <div className="flex flex-col">
             <span className="text-[11px] font-bold text-slate-400 tracking-wide">마지막 기록</span>
             <span className="text-sm font-black text-slate-700">
-              {upcomingReservation ? `${upcomingReservation.date} ${upcomingReservation.time}` : '예정 없음'}
+              {latestRecordLabel}
             </span>
           </div>
         </div>

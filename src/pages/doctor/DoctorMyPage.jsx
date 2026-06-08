@@ -177,7 +177,7 @@ function PatientMiniCard({ patient, isLoadingDetails }) {
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2">
         <PatientMetric label="전화번호" value={patient.phone} isLoading={isLoadingDetails} />
         <PatientMetric label="이메일" value={patient.email} isLoading={isLoadingDetails} />
       </div>

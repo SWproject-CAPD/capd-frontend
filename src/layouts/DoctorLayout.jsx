@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, Link, useParams } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
 import DoctorChatPage from '../pages/doctor/DoctorChatPage';
@@ -193,7 +193,7 @@ export default function DoctorLayout() {
               </div>
               <input
                 type="text"
-                placeholder="이름, 나이, 성별, 전화번호 검색"
+                placeholder="이름, 나이, 성별 검색"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
