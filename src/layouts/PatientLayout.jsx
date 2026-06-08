@@ -10,13 +10,21 @@ export default function PatientLayout() {
   const { user, logout } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: reservations = [], isLoading: isReservationsLoading } = usePatientReservations();
-  const hasAssignedDoctor = reservations.some(reservation => (
+  const {
+    data: reservations = [],
+    isLoading: isReservationsLoading,
+    error: reservationsError,
+  } = usePatientReservations();
+  const hasDoctorReservation = reservations.some(reservation => (
     reservation.doctorName && reservation.doctorName !== '-'
   ));
+  // 현재 백엔드 응답에는 환자의 담당의사 정보가 직접 포함되지 않아 예약의 doctorName으로만 추정합니다.
+  // 예약이 없거나 조회가 실패한 경우는 담당의사 없음으로 단정할 수 없으므로 기능을 막지 않습니다.
+  const cannotConfirmMissingDoctor = reservations.length === 0 || Boolean(reservationsError);
+  const canUseDoctorRequiredPage = hasDoctorReservation || cannotConfirmMissingDoctor;
   const canUseCurrentPage = (
     isReservationsLoading ||
-    hasAssignedDoctor ||
+    canUseDoctorRequiredPage ||
     DOCTOR_REQUIRED_ALLOWED_PATHS.includes(location.pathname)
   );
 
