@@ -381,7 +381,7 @@ export default function HealthSurveyPage() {
             type="submit"
             disabled={!canSubmitSurvey || isSubmitting}
             title={!canWriteSurvey ? SURVEY_DEADLINE_MESSAGE : undefined}
-            className={`sticky bottom-20 z-20 w-full rounded-2xl py-5 text-lg font-black shadow-lg transition-all md:static ${
+            className={`w-full rounded-2xl py-5 text-lg font-black shadow-lg transition-all ${
               canSubmitSurvey
                 ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.99]'
                 : 'bg-slate-200 text-slate-400'

@@ -179,7 +179,6 @@ export default function PatientRegister() {
             value={formData.birthDate}
             onChange={handleBirthDateChange}
             showError={birthDateTouched}
-            idPrefix="patient-birth-date"
           />
 
           <Input
