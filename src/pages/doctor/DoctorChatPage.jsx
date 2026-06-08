@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import useAiAgent from '../../hooks/useAiAgent';
+import { formatAge } from '../../utils/ageFormat';
 
 export default function DoctorChatPage({ currentPatient }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,7 +25,7 @@ export default function DoctorChatPage({ currentPatient }) {
     : '전체 진료 컨텍스트';
 
   const contextDescription = currentPatient
-    ? `${currentPatient.sex}/${currentPatient.age}세 · ${currentPatient.phone}`
+    ? `${currentPatient.sex}/${formatAge(currentPatient.age)} · ${currentPatient.phone}`
     : '환자를 선택하면 해당 환자 기록을 기준으로 대화합니다.';
 
   return (

@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import BackToPatientButton from '../../components/BackToPatientButton';
 import { getLatestRecord, useDoctorPatientBundle } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 export default function PatientInfoPage() {
   const { id } = useParams();
@@ -37,7 +38,7 @@ export default function PatientInfoPage() {
           </div>
 
           <div className="p-6 space-y-5 flex-1">
-            <InfoBlock label="성별 / 나이" value={`${patient.sex} / 만 ${patient.age}세`} />
+            <InfoBlock label="성별 / 나이" value={`${patient.sex} / ${formatAge(patient.age)}`} />
             <InfoBlock label="이메일" value={patient.email} />
             <InfoBlock label="전화번호" value={patient.phone} />
             <InfoBlock label="최근 기록일" value={latestRecord?.date || '-'} />

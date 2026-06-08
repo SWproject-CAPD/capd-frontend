@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Sparkline from '../../components/Sparkline';
 import { useDoctorPatientBundle, useDoctorPatientSurveyOverview } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 const ShortcutIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -83,7 +84,7 @@ export default function PatientInsightPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs z-10 mt-auto">
-            <div className="text-slate-400">나이/성별</div><div className="font-medium text-right">{patient.age}세 / {patient.sex}</div>
+            <div className="text-slate-400">나이/성별</div><div className="font-medium text-right">{formatAge(patient.age)} / {patient.sex}</div>
             <div className="text-slate-400">전화번호</div><div className="font-medium text-right">{patient.phone}</div>
             <div className="text-slate-400">이메일</div><div className="font-medium text-right truncate">{patient.email}</div>
           </div>

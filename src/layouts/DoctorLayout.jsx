@@ -4,6 +4,7 @@ import useAppStore from '../store/useAppStore';
 import DoctorChatPage from '../pages/doctor/DoctorChatPage';
 import { authApi } from '../api/apiClient';
 import { addDays, toDateKey } from '../api/adapters';
+import { formatAge } from '../utils/ageFormat';
 import {
   useDoctorPatients,
   useDoctorReservationsByDate,
@@ -232,7 +233,7 @@ export default function DoctorLayout() {
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex min-w-0 flex-col">
-                        <span className="text-xs text-gray-500">{patient.sex}/{patient.age}세</span>
+                        <span className="text-xs text-gray-500">{patient.sex}/{formatAge(patient.age)}</span>
                         <span className="truncate text-[11px] font-bold text-blue-500">
                           {formatNextReservationLabel(nextReservation, todayKey)}
                         </span>

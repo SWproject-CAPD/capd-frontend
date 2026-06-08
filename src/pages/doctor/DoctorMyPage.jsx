@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useAppStore from '../../store/useAppStore';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
 import { useDoctorMe, useDoctorPatientProfiles, useDoctorPatients } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 export default function DoctorMyPage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -167,7 +168,7 @@ function PatientMiniCard({ patient, isLoadingDetails }) {
         <div className="min-w-0">
           <div className="truncate text-lg font-black text-slate-900">{patient.name}</div>
           <div className="mt-1 text-xs font-medium text-slate-500">
-            {patient.sex} / {patient.age}세
+            {patient.sex} / {formatAge(patient.age)}
           </div>
         </div>
 

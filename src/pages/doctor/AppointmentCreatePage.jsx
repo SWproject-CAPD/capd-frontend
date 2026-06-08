@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { reservationApi } from '../../api/apiClient';
 import { toDateKey, toDateTimeInputValue } from '../../api/adapters';
 import { useDoctorPatientProfile, useDoctorPatients } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 const appointmentTypes = [
   { value: '정기 검진', description: '정기 외래 진료' },
@@ -118,7 +119,7 @@ export default function AppointmentCreatePage() {
                 >
                   {assignedPatients.map(patient => (
                     <option key={patient.id} value={patient.id}>
-                      {patient.name} 환자 ({patient.sex}/{patient.age}세)
+                      {patient.name} 환자 ({patient.sex}/{formatAge(patient.age)})
                     </option>
                   ))}
                 </select>
@@ -203,7 +204,7 @@ export default function AppointmentCreatePage() {
                     <div className="min-w-0">
                       <div className="truncate text-xl font-black text-slate-900">{displayPatient.name}</div>
                       <div className="mt-1 text-sm font-bold text-slate-400">
-                        {displayPatient.sex}/{displayPatient.age}세
+                        {displayPatient.sex}/{formatAge(displayPatient.age)}
                       </div>
                     </div>
                   </div>

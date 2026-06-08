@@ -6,6 +6,7 @@ import useAppStore from '../../store/useAppStore';
 import { capdApi, doctorApi } from '../../api/apiClient';
 import { normalizeCapd } from '../../api/adapters';
 import { useDoctorPatients } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 function buildPatientRow(patient, records = []) {
   const todayData = records[0] || {};
@@ -177,7 +178,7 @@ export default function DoctorHome() {
                       </div>
                       <div>
                         <div className="font-bold text-slate-900 text-sm">{patient.name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{patient.sex}/{patient.age}세</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{patient.sex}/{formatAge(patient.age)}</div>
                       </div>
                     </div>
                   </td>

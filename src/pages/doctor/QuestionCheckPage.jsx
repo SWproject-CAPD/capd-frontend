@@ -4,6 +4,7 @@ import BackToPatientButton from '../../components/BackToPatientButton';
 import Card from '../../components/Card';
 import { addDays, toDateKey } from '../../api/adapters';
 import { useDoctorAnswers, useDoctorPatientProfile, useDoctorReservationsByDateRange } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 const RESERVATION_LOOKBACK_DAYS = 30;
 const RESERVATION_LOOKAHEAD_DAYS = 90;
@@ -56,7 +57,7 @@ export default function QuestionCheckPage() {
             <h3 className="mb-4 text-sm font-black text-gray-800">환자 요약</h3>
             <div className="space-y-1">
               <InfoRow label="환자명" value={patient?.name || '-'} />
-              <InfoRow label="성별/나이" value={patient ? `${patient.sex} / ${patient.age}세` : '-'} />
+              <InfoRow label="성별/나이" value={patient ? `${patient.sex} / ${formatAge(patient.age)}` : '-'} />
               <InfoRow label="전화번호" value={patient?.phone || '-'} />
               <InfoRow label="예약 일시" value={patientReservation ? `${patientReservation.date} ${patientReservation.time}` : '-'} />
             </div>

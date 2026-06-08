@@ -3,6 +3,7 @@ import useAppStore from '../../store/useAppStore';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
 import { getLatestRecord, usePatientCapdRecords, usePatientMe, usePatientReservations } from '../../hooks/usePatientData';
 import { getUpcomingReservation } from '../../hooks/usePatientData';
+import { formatAge } from '../../utils/ageFormat';
 
 export default function PatientMyPage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -74,7 +75,7 @@ export default function PatientMyPage() {
           <InfoRow label="이메일" value={patient?.email || '-'} />
           <InfoRow label="전화번호" value={patient?.phone || '-'} />
           <InfoRow label="성별" value={patient?.sex || '-'} />
-          <InfoRow label="나이" value={patient?.age ? `${patient.age}세` : '-'} />
+          <InfoRow label="나이" value={formatAge(patient?.age)} />
           <InfoRow label="최근 체중" value={latestWeight ? `${latestWeight} kg` : '-'} />
           <InfoRow label="최근 기록일" value={latestRecord?.date || '-'} />
           <InfoRow label="다음 예약" value={nextReservation ? `${nextReservation.date} ${nextReservation.time}` : '-'} />
