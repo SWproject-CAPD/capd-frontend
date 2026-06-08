@@ -62,6 +62,15 @@ export const toDateTimeInputValue = (dateKey, timeValue = '09:00') => {
   return `${dateKey}T${time}:00`;
 };
 
+export const RESERVATION_TYPE_LABELS = {
+  REGULAR_CHECKUP: '정기 검진 및 결과 상담',
+  BLOOD_TEST_CONSULTATION: '혈액 검사 결과 상담',
+  DIALYSIS_TUBE_INSPECTION: '투석관 점검 및 소독',
+  PRESCRIPTION_MANAGEMENT: '투석액 및 처방 관리',
+};
+
+export const formatReservationType = (type) => RESERVATION_TYPE_LABELS[type] || type || EMPTY_TEXT;
+
 const formatTimeToMinutes = (timeValue) => {
   if (!timeValue) return EMPTY_TEXT;
 
@@ -265,7 +274,8 @@ export const normalizeReservation = (reservation = {}) => {
     date,
     time,
     dateTime,
-    type: reservation.type || '진료 예약',
+    type: formatReservationType(reservation.type) || '진료 예약',
+    typeCode: reservation.type || '',
     status: reservation.status || 'confirmed',
   };
 };

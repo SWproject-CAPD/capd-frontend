@@ -92,9 +92,11 @@ export default function VisitSchedulePage() {
                   className={`relative aspect-square rounded-2xl text-sm font-black transition-all ${
                     isSelected
                       ? 'bg-orange-500 text-white shadow-md'
-                      : isToday
-                        ? 'bg-slate-100 text-slate-900 hover:bg-orange-50'
-                        : 'text-slate-600 hover:bg-orange-50'
+                      : hasSchedule
+                        ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+                        : isToday
+                          ? 'bg-slate-100 text-slate-900 hover:bg-orange-50'
+                          : 'text-slate-600 hover:bg-orange-50'
                   }`}
                 >
                   {day}

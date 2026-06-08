@@ -468,7 +468,11 @@ export default function HealthSurveyPage() {
                     type="button"
                     onClick={() => handleDateClick(day)}
                     className={`relative flex h-10 flex-col items-center justify-center rounded-2xl text-sm transition-all ${
-                      isSelected ? 'z-10 scale-105 bg-emerald-600 font-bold text-white shadow-lg' : 'text-gray-600 hover:bg-emerald-50'
+                      isSelected
+                        ? 'z-10 scale-105 bg-emerald-600 font-bold text-white shadow-lg'
+                        : hasReservation
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'text-gray-600 hover:bg-emerald-50'
                     }`}
                   >
                     {day}

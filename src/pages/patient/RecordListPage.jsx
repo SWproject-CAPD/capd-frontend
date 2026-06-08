@@ -146,7 +146,11 @@ export default function RecordListPage() {
                     key={day}
                     onClick={() => setSelectedDate(new Date(year, month, day))}
                     className={`h-10 flex flex-col items-center justify-center rounded-2xl text-sm transition-all relative ${
-                      isSelected ? 'bg-blue-600 text-white font-bold shadow-lg scale-105 z-10' : 'text-gray-600 hover:bg-blue-50'
+                      isSelected
+                        ? 'bg-blue-600 text-white font-bold shadow-lg scale-105 z-10'
+                        : hasRecord
+                          ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          : 'text-gray-600 hover:bg-blue-50'
                     }`}
                   >
                     {day}

@@ -283,8 +283,12 @@ export default function DoctorLayout() {
                   <div
                     key={day}
                     onClick={() => setSelectedDate(new Date(year, month, day))}
-                    className={`h-8 flex flex-col items-center justify-center text-[11px] rounded-md cursor-pointer hover:bg-blue-50 transition-colors ${
-                      isSelected ? 'bg-blue-600 text-white font-bold shadow-md hover:bg-blue-700' : 'text-gray-700'
+                    className={`h-8 flex flex-col items-center justify-center text-[11px] rounded-md cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white font-bold shadow-md hover:bg-blue-700'
+                        : hasAppointment
+                          ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          : 'text-gray-700 hover:bg-blue-50'
                     }`}
                   >
                     {day}

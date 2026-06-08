@@ -104,7 +104,7 @@ export default function RecordLogsPage() {
                     disabled={!hasRecord}
                     className={`h-10 flex flex-col items-center justify-center rounded-xl text-sm transition-all relative ${
                       hasRecord
-                        ? 'text-gray-700 hover:bg-blue-50 font-bold cursor-pointer'
+                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold cursor-pointer'
                         : 'text-gray-300 cursor-not-allowed'
                     }`}
                   >

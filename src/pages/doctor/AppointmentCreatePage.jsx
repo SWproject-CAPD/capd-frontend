@@ -1,15 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reservationApi } from '../../api/apiClient';
-import { toDateKey, toDateTimeInputValue } from '../../api/adapters';
+import { RESERVATION_TYPE_LABELS, toDateKey, toDateTimeInputValue } from '../../api/adapters';
 import { useDoctorPatientProfile, useDoctorPatients } from '../../hooks/usePatientData';
 import { formatAge } from '../../utils/ageFormat';
 
 const appointmentTypes = [
-  { value: '정기 검진', description: '정기 외래 진료' },
-  { value: '혈액 검사 결과 상담', description: '검사 결과 확인' },
-  { value: '투석관 점검 및 소독', description: '투석관 상태 확인' },
-  { value: '증상 확인', description: '불편 증상 진료' },
+  { value: 'REGULAR_CHECKUP', label: RESERVATION_TYPE_LABELS.REGULAR_CHECKUP, description: '정기 검진과 결과 상담을 함께 진행합니다.' },
+  { value: 'BLOOD_TEST_CONSULTATION', label: RESERVATION_TYPE_LABELS.BLOOD_TEST_CONSULTATION, description: '혈액 검사 결과를 확인하고 상담합니다.' },
+  { value: 'DIALYSIS_TUBE_INSPECTION', label: RESERVATION_TYPE_LABELS.DIALYSIS_TUBE_INSPECTION, description: '투석관 상태와 소독 여부를 점검합니다.' },
+  { value: 'PRESCRIPTION_MANAGEMENT', label: RESERVATION_TYPE_LABELS.PRESCRIPTION_MANAGEMENT, description: '투석액과 처방 내용을 관리합니다.' },
 ];
 
 export default function AppointmentCreatePage() {
@@ -21,7 +21,7 @@ export default function AppointmentCreatePage() {
     patientId: '',
     date: todayKey,
     time: '09:00',
-    type: '정기 검진',
+    type: 'REGULAR_CHECKUP',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,6 +32,7 @@ export default function AppointmentCreatePage() {
   const displayPatient = useMemo(() => (
     mergePatientProfile(selectedPatient, selectedPatientProfile)
   ), [selectedPatient, selectedPatientProfile]);
+  const selectedAppointmentType = appointmentTypes.find(type => type.value === formData.type) || appointmentTypes[0];
 
   React.useEffect(() => {
     if (!formData.patientId && assignedPatients[0]?.id) {
@@ -63,6 +64,7 @@ export default function AppointmentCreatePage() {
       const reservation = await reservationApi.create({
         patientId: Number(formData.patientId),
         reservationDate: toDateTimeInputValue(formData.date, formData.time),
+        type: formData.type,
       });
 
       window.dispatchEvent(new CustomEvent('capd:reservations-changed', {
@@ -177,7 +179,7 @@ export default function AppointmentCreatePage() {
                       }`}
                     >
                       <div className={`text-base font-black ${isActive ? 'text-blue-700' : 'text-slate-900'}`}>
-                        {type.value}
+                        {type.label}
                       </div>
                       <div className="mt-2 text-xs font-bold text-slate-400">
                         {type.description}
@@ -245,7 +247,7 @@ export default function AppointmentCreatePage() {
                   {displayPatient?.name || '환자'}
                 </div>
                 <div className="mt-3 w-fit rounded-full bg-blue-100 px-3 py-1 text-sm font-black text-blue-700">
-                  {formData.type}
+                  {selectedAppointmentType.label}
                 </div>
               </div>
             </div>
