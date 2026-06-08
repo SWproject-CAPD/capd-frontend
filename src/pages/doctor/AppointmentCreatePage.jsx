@@ -12,6 +12,35 @@ const appointmentTypes = [
   { value: 'PRESCRIPTION_MANAGEMENT', label: RESERVATION_TYPE_LABELS.PRESCRIPTION_MANAGEMENT, description: '투석액과 처방 내용을 관리합니다.' },
 ];
 
+const isHalfHourTime = (time = '') => {
+  const [, minute = ''] = String(time).split(':');
+  return minute === '00' || minute === '30';
+};
+
+const hourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'));
+const minuteOptions = ['00', '30'];
+
+const getTimeParts = (time = '09:00') => {
+  const [hour = '09', minute = '00'] = String(time).split(':');
+  const hourNumber = Number(hour);
+  const hour12 = hourNumber % 12 || 12;
+
+  return {
+    period: hourNumber >= 12 ? 'PM' : 'AM',
+    hour: String(hour12).padStart(2, '0'),
+    minute: minuteOptions.includes(minute) ? minute : '00',
+  };
+};
+
+const toTimeValue = ({ period, hour, minute }) => {
+  const hourNumber = Number(hour);
+  const hour24 = period === 'AM'
+    ? hourNumber === 12 ? 0 : hourNumber
+    : hourNumber === 12 ? 12 : hourNumber + 12;
+
+  return `${String(hour24).padStart(2, '0')}:${minute}`;
+};
+
 export default function AppointmentCreatePage() {
   const navigate = useNavigate();
   const { data: assignedPatients = [] } = useDoctorPatients();
@@ -55,6 +84,11 @@ export default function AppointmentCreatePage() {
 
     if (formData.date < todayKey) {
       alert('오늘 이전 날짜로는 예약을 등록할 수 없습니다.');
+      return;
+    }
+
+    if (!isHalfHourTime(formData.time)) {
+      alert('예약 시간은 30분 단위로 선택해 주세요.');
       return;
     }
 
@@ -145,13 +179,9 @@ export default function AppointmentCreatePage() {
 
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                 <Field label="예약 시간">
-                  <input
-                    type="time"
-                    name="time"
+                  <HalfHourTimeSelect
                     value={formData.time}
-                    onChange={handleChange}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-black outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
+                    onChange={(time) => setFormData(prev => ({ ...prev, time }))}
                   />
                 </Field>
               </div>
@@ -292,6 +322,52 @@ function Field({ label, children }) {
       <div className="mb-2 text-sm font-black text-slate-700">{label}</div>
       {children}
     </label>
+  );
+}
+
+function HalfHourTimeSelect({ value, onChange }) {
+  const parts = getTimeParts(value);
+
+  const updateTime = (key, nextValue) => {
+    onChange(toTimeValue({ ...parts, [key]: nextValue }));
+  };
+
+  const selectClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-base font-black outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+
+  return (
+    <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+      <select
+        aria-label="오전 오후"
+        value={parts.period}
+        onChange={(event) => updateTime('period', event.target.value)}
+        className={selectClass}
+      >
+        <option value="AM">오전</option>
+        <option value="PM">오후</option>
+      </select>
+
+      <select
+        aria-label="예약 시"
+        value={parts.hour}
+        onChange={(event) => updateTime('hour', event.target.value)}
+        className={selectClass}
+      >
+        {hourOptions.map(hour => (
+          <option key={hour} value={hour}>{hour}</option>
+        ))}
+      </select>
+
+      <select
+        aria-label="예약 분"
+        value={parts.minute}
+        onChange={(event) => updateTime('minute', event.target.value)}
+        className={selectClass}
+      >
+        {minuteOptions.map(minute => (
+          <option key={minute} value={minute}>{minute}</option>
+        ))}
+      </select>
+    </div>
   );
 }
 

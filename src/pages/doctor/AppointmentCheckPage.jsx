@@ -153,7 +153,6 @@ export default function AppointmentCheckPage() {
           <table className="w-full table-fixed border-collapse text-left">
             <thead className="sticky top-0 z-10 bg-white text-[11px] font-black uppercase tracking-wider text-slate-400">
               <tr className="border-b border-slate-100">
-                <th className="w-24 px-4 py-3">예약번호</th>
                 <th className="w-32 px-4 py-3">날짜</th>
                 <th className="w-24 px-4 py-3">시간</th>
                 <th className="w-48 px-4 py-3">환자</th>
@@ -170,7 +169,6 @@ export default function AppointmentCheckPage() {
 
                 return (
                   <tr key={appointment.id} className="h-12 transition-colors hover:bg-blue-50/40">
-                    <td className="px-4 py-2 text-xs font-black text-slate-400">{appointment.id}</td>
                     <td className="px-4 py-2 text-sm font-black text-slate-800">{appointment.date}</td>
                     <td className="px-4 py-2 font-mono text-sm font-black text-blue-700">{appointment.time}</td>
                     <td className="px-4 py-2">

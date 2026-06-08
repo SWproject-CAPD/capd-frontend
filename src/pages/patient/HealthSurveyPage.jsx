@@ -335,7 +335,7 @@ export default function HealthSurveyPage() {
             </section>
           )}
 
-          {surveyQuestions.map((question, index) => {
+          {surveyQuestions.map((question) => {
             const isHelpOpen = openHelpQuestionId === question.questionId;
             const answerValue = getVisibleAnswer(question, visibleAnswers) || '';
             const isAnsweredQuestion = isQuestionAlreadyAnswered(question, submittedAnswerMap);
@@ -351,9 +351,6 @@ export default function HealthSurveyPage() {
               <section key={question.questionId} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm md:p-6">
                 <div className="mb-5 flex items-start justify-between gap-3">
                   <div className="flex min-w-0 gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-sm font-black text-emerald-700">
-                      {index + 1}
-                    </span>
                     <div>
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         {isAnsweredQuestion && (

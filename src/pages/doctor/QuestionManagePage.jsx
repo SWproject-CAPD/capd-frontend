@@ -116,7 +116,7 @@ export default function QuestionManagePage() {
               <InfoRow label="환자명" value={patient?.name || '-'} />
               <InfoRow label="성별/나이" value={patient ? `${patient.sex} / ${formatAge(patient.age)}` : '-'} />
               <InfoRow label="전화번호" value={patient?.phone || '-'} />
-              <InfoRow label="예약번호" value={reservationId || '-'} />
+              <InfoRow label="예약 일시" value={patientReservation ? `${patientReservation.date} ${patientReservation.time}` : '-'} />
             </div>
           </Card>
 
@@ -138,12 +138,12 @@ export default function QuestionManagePage() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-black text-slate-900">예약 #{reservation.reservationId}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{reservation.doctorName}</span>
+                      <span className="text-xs font-black text-slate-900">
+                        {reservation.date} {reservation.time}
+                      </span>
+                      {isActive && <span className="text-[10px] font-bold text-blue-500">선택됨</span>}
                     </div>
-                    <div className="mt-1 text-[11px] font-bold text-slate-500">
-                      {reservation.date} {reservation.time}
-                    </div>
+                    <div className="mt-1 text-[11px] font-bold text-slate-500">{reservation.doctorName}</div>
                   </button>
                 );
               })}
@@ -193,11 +193,13 @@ export default function QuestionManagePage() {
                     <div key={question.questionId} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
                       <div className="mb-3 flex items-center gap-2">
                         <span className="rounded-lg bg-purple-100 px-2.5 py-1 text-[10px] font-black tracking-wider text-purple-700">
-                          {question.type || 'QUESTION'}
+                          {formatQuestionType(question.type)}
                         </span>
-                        <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-600">
-                          {question.status || 'PENDING'}
-                        </span>
+                        {question.status !== 'APPROVED' && (
+                          <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-600">
+                            {formatQuestionStatus(question.status)}
+                          </span>
+                        )}
                       </div>
 
                       <div className="mb-5">
@@ -309,7 +311,7 @@ function QuestionCreateModal({ reservation, onAutoGenerate, onManualGenerate, on
             <div>
               <h2 className="text-xl font-black text-slate-900">질문 생성하기</h2>
               <p className="mt-1 text-sm font-medium text-slate-500">
-                예약 #{reservation?.reservationId} · {reservation?.date} {reservation?.time}
+                {reservation?.date} {reservation?.time}
               </p>
             </div>
             <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-xl font-black text-slate-400 hover:bg-slate-50 hover:text-slate-700">
@@ -417,6 +419,30 @@ function StatusBox({ label, value, tone }) {
       <span className="text-lg font-black">{value}</span>
     </div>
   );
+}
+
+function formatQuestionType(type) {
+  const labels = {
+    YES_NO: '단답식',
+    SHORT_ANSWER: '단답식',
+    SHORT: '단답식',
+    MULTIPLE_CHOICE: '객관식',
+    CHOICE: '객관식',
+    DESCRIPTIVE: '주관식',
+    SUBJECTIVE: '주관식',
+    LONG_ANSWER: '주관식',
+  };
+
+  return labels[String(type || '').toUpperCase()] || '질문';
+}
+
+function formatQuestionStatus(status) {
+  const labels = {
+    PENDING: '승인 대기',
+    REJECTED: '거절됨',
+  };
+
+  return labels[String(status || 'PENDING').toUpperCase()] || '';
 }
 
 function TabButton({ active, onClick, color, children }) {

@@ -45,7 +45,7 @@ export default function QuestionCheckPage() {
           </div>
 
           <div className="grid w-full grid-cols-2 gap-3 md:w-auto">
-            <HeaderStat label="예약번호" value={reservationId || '-'} color="blue" />
+            <HeaderStat label="예약 일시" value={patientReservation ? `${patientReservation.date} ${patientReservation.time}` : '-'} color="blue" />
             <HeaderStat label="전체 응답" value={`${totalSurveyCount}개`} color="emerald" />
           </div>
         </div>
@@ -81,11 +81,10 @@ export default function QuestionCheckPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-black text-gray-900">예약 #{reservation.reservationId}</span>
+                      <span className="text-xs font-black text-gray-900">
+                        {reservation.date} {reservation.time}
+                      </span>
                       {isActive && <span className="text-[10px] font-bold text-blue-500">선택됨</span>}
-                    </div>
-                    <div className="mt-1 text-[11px] font-bold text-gray-500">
-                      {reservation.date} {reservation.time}
                     </div>
                   </button>
                 );
@@ -121,9 +120,6 @@ export default function QuestionCheckPage() {
                   <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                     <div className="bg-blue-50 px-5 py-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black text-white">
-                          {patientReservation.reservationId}
-                        </span>
                         <span className="text-sm font-black text-gray-900">설문 응답</span>
                       </div>
                       <div className="mt-2 text-xs font-bold text-gray-400">
@@ -134,7 +130,7 @@ export default function QuestionCheckPage() {
                     <div className="border-t border-gray-100 p-5">
                       <div className="flex flex-col gap-4">
                         {answers.map((answer, index) => (
-                          <AnswerCard key={answer.answerId || `${answer.questionId}-${index}`} item={answer} index={index} />
+                          <AnswerCard key={answer.answerId || `${answer.questionId}-${index}`} item={answer} />
                         ))}
                       </div>
                     </div>
@@ -149,13 +145,10 @@ export default function QuestionCheckPage() {
   );
 }
 
-function AnswerCard({ item, index }) {
+function AnswerCard({ item }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
-          {index + 1}
-        </span>
         <h3 className="text-base font-black leading-relaxed text-gray-900">
           {item.question}
         </h3>
