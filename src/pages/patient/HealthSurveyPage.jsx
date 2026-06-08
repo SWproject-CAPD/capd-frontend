@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Card from '../../components/Card';
 import { surveyApi } from '../../api/apiClient';
+import { toDateKey } from '../../api/adapters';
 import { getUpcomingReservation, usePatientAnswers, usePatientQuestions, usePatientReservations } from '../../hooks/usePatientData';
 
 const SURVEY_DEADLINE_MESSAGE = '예약 전날까지만 작성 가능합니다.';
@@ -9,17 +11,31 @@ const SUBMITTED_QUESTION_MESSAGE = '이미 답변한 질문입니다. 제출했�
 export default function HealthSurveyPage() {
   const navigate = useNavigate();
   const { data: reservations = [], isLoading: isReservationsLoading } = usePatientReservations();
-  const [selectedReservationId, setSelectedReservationId] = useState(null);
+  const [selectedReservationId, setSelectedReservationId] = useState();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [navDate, setNavDate] = useState(new Date());
+  const selectedDateStr = toDateKey(selectedDate);
+  const year = navDate.getFullYear();
+  const month = navDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
   const writableReservations = useMemo(() => (
     reservations.filter(reservation => isBeforeAppointmentDate(reservation.date))
   ), [reservations]);
   const fallbackReservation = getUpcomingReservation(reservations);
+  const selectedDateReservations = useMemo(() => (
+    reservations.filter(reservation => reservation.date === selectedDateStr)
+  ), [reservations, selectedDateStr]);
   const activeReservation = useMemo(() => (
-    reservations.find(reservation => String(reservation.reservationId) === String(selectedReservationId)) ||
-    writableReservations[0] ||
-    fallbackReservation ||
-    reservations[0]
-  ), [fallbackReservation, reservations, selectedReservationId, writableReservations]);
+    selectedReservationId === null
+      ? selectedDateReservations[0] || null
+      : reservations.find(reservation => String(reservation.reservationId) === String(selectedReservationId)) ||
+        selectedDateReservations[0] ||
+        writableReservations[0] ||
+        fallbackReservation ||
+        reservations[0] ||
+        null
+  ), [fallbackReservation, reservations, selectedDateReservations, selectedReservationId, writableReservations]);
   const { data: surveyQuestions = [], isLoading: isQuestionsLoading, reload } = usePatientQuestions(activeReservation?.reservationId);
   const { data: submittedAnswers = [], reload: reloadSubmittedAnswers } = usePatientAnswers(activeReservation?.reservationId);
 
@@ -59,6 +75,27 @@ export default function HealthSurveyPage() {
   const hasPendingQuestions = pendingQuestions.length > 0;
   const isSurveyComplete = surveyQuestions.length > 0 && !hasPendingQuestions;
   const canSubmitSurvey = canWriteSurvey && hasPendingQuestions && pendingAnsweredCount === pendingQuestions.length;
+  const monthReservations = useMemo(() => (
+    reservations
+      .filter((reservation) => {
+        const reservationDate = parseDateKey(reservation.date);
+        return reservationDate.getFullYear() === year && reservationDate.getMonth() === month;
+      })
+      .sort((a, b) => String(a.reservationDate).localeCompare(String(b.reservationDate)))
+  ), [month, reservations, year]);
+
+  useEffect(() => {
+    if (reservations.length === 0 || selectedReservationId !== undefined) return;
+
+    const initialReservation = fallbackReservation || writableReservations[0] || reservations[0];
+    if (!initialReservation) return;
+
+    const initialDate = parseDateKey(initialReservation.date);
+
+    setSelectedReservationId(initialReservation.reservationId);
+    setSelectedDate(initialDate);
+    setNavDate(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
+  }, [fallbackReservation, reservations, selectedReservationId, writableReservations]);
 
   useEffect(() => {
     let ignore = false;
@@ -102,7 +139,7 @@ export default function HealthSurveyPage() {
 
   const headerMessage = useMemo(() => {
     if (isReservationsLoading || isQuestionsLoading) return '설문 정보를 불러오는 중입니다.';
-    if (!activeReservation) return '예정된 예약이 없어 작성할 설문이 없습니다.';
+    if (!activeReservation) return '선택한 날짜에 예약이 없어 작성할 설문이 없습니다.';
     if (surveyQuestions.length === 0) return '현재 승인된 설문 문항이 없습니다.';
     if (!canWriteSurvey) return '예약일이 지나 설문을 작성할 수 없습니다. 문항과 기존 답변은 확인할 수 있습니다.';
     if (isSurveyComplete) return '이미 답변한 설문입니다. 제출했던 답변을 아래에서 확인할 수 있습니다.';
@@ -128,6 +165,28 @@ export default function HealthSurveyPage() {
         [String(question.questionId)]: value,
       },
     }));
+  };
+
+  const handlePrevMonth = () => setNavDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () => setNavDate(new Date(year, month + 1, 1));
+
+  const handleDateClick = (day) => {
+    const nextDate = new Date(year, month, day);
+    const nextDateStr = toDateKey(nextDate);
+    const reservationOnDate = reservations.find(reservation => reservation.date === nextDateStr);
+
+    setSelectedDate(nextDate);
+    setSelectedReservationId(reservationOnDate?.reservationId ?? null);
+    setOpenHelpQuestionId(null);
+  };
+
+  const handleReservationSelect = (reservation) => {
+    const nextDate = parseDateKey(reservation.date);
+
+    setSelectedReservationId(reservation.reservationId);
+    setSelectedDate(nextDate);
+    setNavDate(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+    setOpenHelpQuestionId(null);
   };
 
   const handleQuestionHelpClick = async (questionId) => {
@@ -175,7 +234,7 @@ export default function HealthSurveyPage() {
     }
   };
 
-  if (!activeReservation && !isReservationsLoading) {
+  if (reservations.length === 0 && !isReservationsLoading) {
     return (
       <div className="mx-auto max-w-3xl pb-24 animate-in fade-in duration-500">
         <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
@@ -199,8 +258,10 @@ export default function HealthSurveyPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl pb-24 animate-in fade-in duration-500">
-      <section className="mb-5 rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+    <div className="mx-auto max-w-6xl pb-24 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+      <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-black text-emerald-600">방문 전 확인</p>
@@ -213,38 +274,6 @@ export default function HealthSurveyPage() {
                 예약: {activeReservation.date} {activeReservation.time} · {activeReservation.doctorName} 선생님
               </p>
             )}
-            {reservations.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {reservations.map(reservation => {
-                  const isActive = String(reservation.reservationId) === String(activeReservation?.reservationId);
-                  const surveyStatus = getReservationSurveyStatus(
-                    reservation,
-                    surveyStatusByReservationId[String(reservation.reservationId)],
-                  );
-
-                  return (
-                    <button
-                      key={reservation.reservationId}
-                      type="button"
-                      onClick={() => {
-                        setSelectedReservationId(reservation.reservationId);
-                        setOpenHelpQuestionId(null);
-                      }}
-                      className={`rounded-2xl border px-4 py-2 text-left text-xs font-black transition-all ${
-                        isActive
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
-                          : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-emerald-200 hover:bg-emerald-50'
-                      }`}
-                    >
-                      <span className="block">{reservation.date} {reservation.time}</span>
-                      <span className={`mt-0.5 block text-[10px] ${surveyStatus.className}`}>
-                        {surveyStatus.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
           <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-center">
             <div className="text-[11px] font-black text-emerald-600">진행률</div>
@@ -253,7 +282,17 @@ export default function HealthSurveyPage() {
         </div>
       </section>
 
-      {surveyQuestions.length === 0 && !isQuestionsLoading ? (
+      {!activeReservation ? (
+        <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-black text-slate-500">
+            !
+          </div>
+          <h2 className="text-2xl font-black text-slate-900">선택한 날짜에 예약이 없습니다</h2>
+          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-500">
+            달력의 점이 표시된 예약일을 선택하면 해당 예약의 건강 설문을 확인할 수 있습니다.
+          </p>
+        </section>
+      ) : surveyQuestions.length === 0 && !isQuestionsLoading ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-black text-slate-500">
             !
@@ -397,6 +436,96 @@ export default function HealthSurveyPage() {
           </button>
         </form>
       )}
+        </div>
+
+        <aside className="sticky top-6">
+          <Card className="border-none bg-white p-5 shadow-md">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-lg font-black text-gray-900">{year}년 {month + 1}월</h3>
+              <div className="flex gap-2">
+                <button type="button" onClick={handlePrevMonth} className="rounded p-1 text-gray-400 hover:bg-slate-50">◀</button>
+                <button type="button" onClick={handleNextMonth} className="rounded p-1 text-gray-400 hover:bg-slate-50">▶</button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+                <div key={day} className="mb-3 text-[10px] font-bold text-gray-300">{day}</div>
+              ))}
+              {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+                <div key={`blank-${index}`} className="h-10" />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, index) => {
+                const day = index + 1;
+                const currentDate = new Date(year, month, day);
+                const currentDateStr = toDateKey(currentDate);
+                const isSelected = selectedDateStr === currentDateStr;
+                const hasReservation = reservations.some(reservation => reservation.date === currentDateStr);
+
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => handleDateClick(day)}
+                    className={`relative flex h-10 flex-col items-center justify-center rounded-2xl text-sm transition-all ${
+                      isSelected ? 'z-10 scale-105 bg-emerald-600 font-bold text-white shadow-lg' : 'text-gray-600 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {day}
+                    {hasReservation && (
+                      <span className={`absolute bottom-1.5 h-1 w-1 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-400'}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 border-t border-gray-100 pt-6">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{month + 1}월 달 설문 내역</span>
+              </div>
+              <div className="space-y-2">
+                {monthReservations.map(reservation => {
+                  const isActive = String(reservation.reservationId) === String(activeReservation?.reservationId);
+                  const surveyStatus = getReservationSurveyStatus(
+                    reservation,
+                    surveyStatusByReservationId[String(reservation.reservationId)],
+                  );
+
+                  return (
+                    <button
+                      key={reservation.reservationId}
+                      type="button"
+                      onClick={() => handleReservationSelect(reservation)}
+                      className={`w-full rounded-xl border p-3 text-left transition-all ${
+                        isActive ? 'border-emerald-400 bg-emerald-50 shadow-sm' : 'border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-sm font-black ${isActive ? 'text-emerald-700' : 'text-gray-700'}`}>
+                          {reservation.date}
+                        </span>
+                        <span className={`text-[10px] font-black ${surveyStatus.className}`}>
+                          {surveyStatus.label}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs font-bold text-slate-400">
+                        {reservation.time} · {reservation.doctorName} 선생님
+                      </div>
+                    </button>
+                  );
+                })}
+                {monthReservations.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-gray-100 p-4 text-center text-xs font-bold text-gray-400">
+                    해당 달 예약이 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -528,6 +657,13 @@ function isBeforeAppointmentDate(appointmentDate) {
   appointment.setHours(0, 0, 0, 0);
 
   return today < appointment;
+}
+
+function parseDateKey(dateKey) {
+  if (!dateKey || dateKey === '-') return new Date();
+
+  const [year, month, day] = String(dateKey).split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
 
 function getReservationSurveyStatus(reservation, storedStatus) {
