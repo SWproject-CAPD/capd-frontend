@@ -150,10 +150,10 @@ export default function PatientRegister() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 py-12">
-      <Card className="w-full max-w-lg p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">환자 회원가입</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="auth-page min-h-screen bg-slate-50 flex items-center justify-center p-4 py-10 sm:p-6 lg:p-8 lg:py-12">
+      <Card className="w-full max-w-lg p-8 sm:max-w-xl sm:px-10 sm:py-12 lg:max-w-xl lg:px-12 lg:py-14">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center md:text-3xl lg:mb-8">환자 회원가입</h2>
+        <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
           <Input
             label="이름"
             name="name"
@@ -264,8 +264,8 @@ export default function PatientRegister() {
             required
           />
 
-          <div className="pt-4 flex flex-col gap-3">
-            <Button type="submit" disabled={isSubmitting} className="w-full py-3 text-lg">
+          <div className="pt-4 flex flex-col gap-3 lg:pt-6">
+            <Button type="submit" disabled={isSubmitting} className="w-full py-3 text-lg md:py-3.5 md:text-xl">
               {isSubmitting ? '가입 중' : '가입 완료'}
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate('/login')} className="w-full">

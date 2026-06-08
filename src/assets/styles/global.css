@@ -24,6 +24,23 @@
   }
 }
 
+@media (min-width: 768px) {
+  .auth-page input,
+  .auth-page select {
+    padding-top: 0.875rem !important;
+    padding-bottom: 0.875rem !important;
+    font-size: 1rem;
+  }
+
+  .auth-page label {
+    font-size: 0.95rem;
+  }
+
+  .auth-page button:not(.absolute) {
+    min-height: 2.75rem;
+  }
+}
+
 @media print {
   @page {
     size: A4;
