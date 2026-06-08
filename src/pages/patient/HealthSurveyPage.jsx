@@ -155,15 +155,17 @@ export default function HealthSurveyPage() {
     surveyQuestions.length,
   ]);
 
-  const handleAnswer = (question, value) => {
+  const handleAnswer = (question, value, options = {}) => {
     if (!canWriteSurvey || !activeReservationKey || isQuestionAlreadyAnswered(question, submittedAnswerMap)) return;
 
     setAnswersByReservationId(prev => ({
       ...prev,
-      [activeReservationKey]: {
-        ...(prev[activeReservationKey] || {}),
-        [String(question.questionId)]: value,
-      },
+      [activeReservationKey]: getNextReservationAnswers(
+        prev[activeReservationKey] || {},
+        question.questionId,
+        value,
+        options,
+      ),
     }));
   };
 
@@ -189,16 +191,27 @@ export default function HealthSurveyPage() {
     setOpenHelpQuestionId(null);
   };
 
-  const handleQuestionHelpClick = async (questionId) => {
+  const handleQuestionHelpClick = async (question) => {
+    const questionId = question.questionId;
+    const localHelpText = getQuestionHelpText(question);
+
     setOpenHelpQuestionId(prev => (prev === questionId ? null : questionId));
 
     if (helpTextByQuestionId[questionId]) return;
 
     try {
-      const helpText = await surveyApi.explainQuestion(questionId);
-      setHelpTextByQuestionId(prev => ({ ...prev, [questionId]: helpText }));
+      const helpText = getApiHelpText(await surveyApi.explainQuestion(questionId));
+      setHelpTextByQuestionId(prev => ({
+        ...prev,
+        [questionId]: isSubmittedSurveyMessage(helpText)
+          ? localHelpText || getAnsweredQuestionFallbackHelp(question)
+          : helpText,
+      }));
     } catch (error) {
-      setHelpTextByQuestionId(prev => ({ ...prev, [questionId]: error.message || '질문 설명을 불러오지 못했습니다.' }));
+      setHelpTextByQuestionId(prev => ({
+        ...prev,
+        [questionId]: localHelpText || getSafeHelpErrorMessage(error),
+      }));
     }
   };
 
@@ -327,6 +340,7 @@ export default function HealthSurveyPage() {
             const answerValue = getVisibleAnswer(question, visibleAnswers) || '';
             const isAnsweredQuestion = isQuestionAlreadyAnswered(question, submittedAnswerMap);
             const isQuestionDisabled = !canWriteSurvey || isAnsweredQuestion;
+            const canShowHelpButton = !isAnsweredQuestion;
             const questionTitle = isAnsweredQuestion
               ? SUBMITTED_QUESTION_MESSAGE
               : !canWriteSurvey
@@ -360,21 +374,23 @@ export default function HealthSurveyPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuestionHelpClick(question.questionId)}
-                    title="질문을 쉽게 설명해드려요"
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border text-sm font-black transition-all active:scale-95 ${
-                      isHelpOpen
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600'
-                    }`}
-                  >
-                    ?
-                  </button>
+                  {canShowHelpButton && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuestionHelpClick(question)}
+                      title="질문을 쉽게 설명해드려요"
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border text-sm font-black transition-all active:scale-95 ${
+                        isHelpOpen
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600'
+                      }`}
+                    >
+                      ?
+                    </button>
+                  )}
                 </div>
 
-                {isHelpOpen && (
+                {canShowHelpButton && isHelpOpen && (
                   <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                     <div className="mb-1 text-[11px] font-black text-emerald-600">질문 쉬운 설명</div>
                     <p className="text-sm font-medium leading-relaxed text-emerald-800">
@@ -391,7 +407,7 @@ export default function HealthSurveyPage() {
                         active={answerValue === option}
                         disabled={isQuestionDisabled}
                         title={questionTitle}
-                        onClick={() => handleAnswer(question, option)}
+                        onClick={() => handleAnswer(question, option, { toggle: true })}
                       >
                         {option}
                       </ChoiceButton>
@@ -554,6 +570,51 @@ function ChoiceButton({ active, disabled, title, onClick, children }) {
       {children}
     </button>
   );
+}
+
+function getNextReservationAnswers(currentAnswers, questionId, value, options = {}) {
+  const answerKey = String(questionId);
+
+  if (options.toggle && currentAnswers[answerKey] === value) {
+    const { [answerKey]: _removedAnswer, ...restAnswers } = currentAnswers;
+    return restAnswers;
+  }
+
+  return {
+    ...currentAnswers,
+    [answerKey]: value,
+  };
+}
+
+function getQuestionHelpText(question = {}) {
+  return question.questionReason || question.reason || question.description || question.explanation || '';
+}
+
+function getAnsweredQuestionFallbackHelp(question = {}) {
+  return question.text || question.question || '질문 설명 정보가 없습니다.';
+}
+
+function getApiHelpText(response) {
+  if (typeof response === 'string') return response;
+
+  return response?.explanation ||
+    response?.description ||
+    response?.reason ||
+    response?.questionReason ||
+    response?.message ||
+    '질문 설명을 불러오지 못했습니다.';
+}
+
+function getSafeHelpErrorMessage(error) {
+  if (isSubmittedSurveyMessage(error?.message)) {
+    return '질문 설명 정보가 없습니다.';
+  }
+
+  return error?.message || '질문 설명을 불러오지 못했습니다.';
+}
+
+function isSubmittedSurveyMessage(message = '') {
+  return /제출|답변/.test(String(message));
 }
 
 function getSubmitButtonLabel({ canWriteSurvey, hasPendingQuestions, isSubmitting, isSurveyComplete, canSubmitSurvey }) {

@@ -280,24 +280,41 @@ export const normalizeReservation = (reservation = {}) => {
   };
 };
 
-export const normalizeQuestion = (question = {}) => ({
-  id: question.questionId,
-  questionId: question.questionId,
-  reservationId: question.reservationId,
-  reservationDate: question.reservationDate,
-  patientId: question.patientId,
-  patientName: question.patientName,
-  text: question.question || '',
-  question: question.question || '',
-  type: question.type || '',
-  options: parseOptions(question.options),
-  answered: Boolean(question.answered),
-  answer: question.answer ?? '',
-  reason: question.questionReason || '',
-  questionReason: question.questionReason || '',
-  status: question.status ? String(question.status).toUpperCase() : 'PENDING',
-  createdAt: trimDateTimeToSeconds(question.createdAt),
-});
+export const normalizeQuestion = (question = {}) => {
+  const questionReason = getQuestionReason(question);
+
+  return {
+    id: question.questionId,
+    questionId: question.questionId,
+    reservationId: question.reservationId,
+    reservationDate: question.reservationDate,
+    patientId: question.patientId,
+    patientName: question.patientName,
+    text: question.question || '',
+    question: question.question || '',
+    type: question.type || '',
+    options: parseOptions(question.options),
+    answered: Boolean(question.answered),
+    answer: question.answer ?? '',
+    reason: questionReason,
+    questionReason,
+    description: questionReason,
+    explanation: questionReason,
+    status: question.status ? String(question.status).toUpperCase() : 'PENDING',
+    createdAt: trimDateTimeToSeconds(question.createdAt),
+  };
+};
+
+function getQuestionReason(question = {}) {
+  return question.questionReason ||
+    question.reason ||
+    question.description ||
+    question.explanation ||
+    question.explain ||
+    question.helpText ||
+    question.questionHelp ||
+    '';
+}
 
 export const normalizeAnswer = (answer = {}) => {
   const questionData = typeof answer.question === 'object' ? answer.question : answer.surveyQuestion;
