@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import BackToPatientButton from '../../components/BackToPatientButton';
@@ -20,6 +20,7 @@ export default function AiReportPage() {
   const [selectedWeek, setSelectedWeek] = useState('1');
   const [isLoading, setIsLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
+  const reportPrintRef = useRef(null);
 
   const activeReport = reportData || savedReports[0] || null;
   const reportChartData = useMemo(() => (
@@ -73,15 +74,122 @@ export default function AiReportPage() {
   };
 
   const handleExportPdf = async () => {
-    if (!activeReport?.reportId) return;
+    if (!activeReport) return;
 
-    try {
-      await reportApi.createPdf(activeReport.reportId);
-      const pdfUrl = await reportApi.getPdfUrl(activeReport.reportId);
-      if (pdfUrl) window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      alert(error.message || 'PDF 내보내기에 실패했습니다.');
+    const reportElement = reportPrintRef.current;
+    if (!reportElement) return;
+
+    const printWindow = window.open('', '_blank', 'width=960,height=1080');
+    if (!printWindow) {
+      window.print();
+      return;
     }
+
+    const printDocument = printWindow.document;
+    const printTitle = `${patient?.name || '환자'}_${activeReport.title}_${activeReport.period}`;
+    const clonedReport = reportElement.cloneNode(true);
+    clonedReport.querySelectorAll('.ai-report-print-actions').forEach(element => element.remove());
+    const documentStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(element => element.outerHTML)
+      .join('\n');
+
+    printDocument.open();
+    printDocument.write(`
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(printTitle)}</title>
+          ${documentStyles}
+          <style>
+            @page { size: A4; margin: 14mm; }
+            * { box-sizing: border-box; }
+            html, body {
+              margin: 0;
+              width: 100%;
+              min-height: 100%;
+              background: #ffffff !important;
+              color: #0f172a;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            body {
+              padding: 0;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }
+            .print-report-page {
+              width: 100%;
+              max-width: 100%;
+            }
+            .ai-report-print-root,
+            .ai-report-print-shell,
+            .ai-report-scroll {
+              display: block !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: none !important;
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              overflow: visible !important;
+            }
+            .ai-report-print-root {
+              position: static !important;
+              top: auto !important;
+              left: auto !important;
+            }
+            .ai-report-print-shell {
+              border: 0 !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+            }
+            .ai-report-scroll {
+              padding: 20px 0 0 !important;
+            }
+            .ai-report-print-root .grid {
+              display: grid !important;
+            }
+            .ai-report-print-root .md\\:grid-cols-2 {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+            .ai-report-print-root .md\\:grid-cols-3 {
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            }
+            .ai-report-print-root .recharts-responsive-container {
+              min-height: 96px !important;
+            }
+            .ai-report-print-root p,
+            .ai-report-print-root h1,
+            .ai-report-print-root h2,
+            .ai-report-print-root h3,
+            .ai-report-print-root span,
+            .ai-report-print-root div {
+              word-break: keep-all;
+              overflow-wrap: anywhere;
+            }
+            @media print {
+              body,
+              body * {
+                visibility: visible !important;
+              }
+              .ai-report-print-actions {
+                display: none !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-report-page">${clonedReport.outerHTML}</div>
+        </body>
+      </html>
+    `);
+    printDocument.close();
+
+    printWindow.setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    }, 300);
   };
 
   return (
@@ -164,7 +272,7 @@ export default function AiReportPage() {
             </Card>
           </aside>
 
-          <main className="ai-report-print-root min-h-0 xl:col-span-8">
+          <main ref={reportPrintRef} className="ai-report-print-root min-h-0 xl:col-span-8">
             <div className="ai-report-print-shell flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
               {isLoading ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-4">
@@ -360,6 +468,15 @@ function ReportSection({ title, children }) {
       <div className="space-y-4 p-6">{children}</div>
     </section>
   );
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function buildReportChartData(report, records = []) {
