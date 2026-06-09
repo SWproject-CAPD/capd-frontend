@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { capdApi } from '../../api/apiClient';
-import { toCapdPayload, toDateKey, toKoreanDate } from '../../api/adapters';
+import { normalizeCapd, toCapdPayload, toDateKey, toKoreanDate } from '../../api/adapters';
 
 const CAPD_CONFLICT_STATUS = 409;
 const CAPD_CONFLICT_MESSAGE = '오늘 기록은 이미 제출되었거나 서버에서 수정할 수 없는 상태입니다. 기록 목록에서 확인해 주세요.';
@@ -57,6 +57,44 @@ export default function DailyRecordPage() {
     infused: '2000',
     drained: '',
   });
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadSubmittedRecord = async () => {
+      try {
+        const record = await capdApi.getMineByDate(formattedDate);
+        const normalizedRecord = record ? normalizeCapd(record) : null;
+        const isSubmitted = normalizedRecord && String(normalizedRecord.status || '').toUpperCase() !== 'TEMP';
+
+        if (ignore || !isSubmitted) return;
+
+        setDailyInfo({
+          turbidity: normalizedRecord.turbidity,
+          urineCount: normalizedRecord.urineCount,
+          weight: normalizedRecord.weight,
+          bpSystolic: normalizedRecord.bpSystolic,
+          bpDiastolic: normalizedRecord.bpDiastolic,
+          fbs: normalizedRecord.fbs,
+          memo: normalizedRecord.memo,
+        });
+        setExchanges(normalizedRecord.exchanges || []);
+        setIsTempSaveBlocked(true);
+        setAutoSaveStatus('이미 제출됨');
+        clearLocalDraft(formattedDate);
+      } catch (error) {
+        if (error.status !== 404) {
+          // 오늘 제출 기록 확인 실패는 입력 자체를 막지 않습니다.
+        }
+      }
+    };
+
+    loadSubmittedRecord();
+
+    return () => {
+      ignore = true;
+    };
+  }, [formattedDate]);
 
   const saveTempRecord = (infoData = dailyInfo, exchangeList = exchanges) => {
     if (isTempSaveBlocked) return false;
@@ -120,6 +158,11 @@ export default function DailyRecordPage() {
     : 0;
 
   const handleAddExchange = async () => {
+    if (isTempSaveBlocked) {
+      alert(CAPD_CONFLICT_MESSAGE);
+      return;
+    }
+
     if (exchanges.length >= 5) {
       alert('하루 최대 5회까지만 추가할 수 있습니다.');
       return;
@@ -149,6 +192,11 @@ export default function DailyRecordPage() {
   };
 
   const handleRemoveExchange = async (index) => {
+    if (isTempSaveBlocked) {
+      alert(CAPD_CONFLICT_MESSAGE);
+      return;
+    }
+
     const newList = exchanges.filter((_, itemIndex) => itemIndex !== index)
       .map((exchange, itemIndex) => ({ ...exchange, sessionNumber: itemIndex + 1 }));
 
@@ -175,15 +223,29 @@ export default function DailyRecordPage() {
     if (!confirmFinalSubmit) return;
 
     try {
-      await submitRecord(toCapdPayload({
+      const submittedRecord = await submitRecord(toCapdPayload({
         date: formattedDate,
         dailyInfo,
         exchanges,
       }));
+      const normalizedRecord = submittedRecord ? normalizeCapd(submittedRecord) : null;
 
       clearLocalDraft(formattedDate);
+      if (normalizedRecord?.exchanges?.length) {
+        setDailyInfo({
+          turbidity: normalizedRecord.turbidity,
+          urineCount: normalizedRecord.urineCount,
+          weight: normalizedRecord.weight,
+          bpSystolic: normalizedRecord.bpSystolic,
+          bpDiastolic: normalizedRecord.bpDiastolic,
+          fbs: normalizedRecord.fbs,
+          memo: normalizedRecord.memo,
+        });
+        setExchanges(normalizedRecord.exchanges);
+      }
+      setIsTempSaveBlocked(true);
+      setAutoSaveStatus('이미 제출됨');
       alert('오늘 하루의 기록이 성공적으로 제출되었습니다!');
-      navigate('/patient/record_list');
     } catch (error) {
       if (error.status === CAPD_CONFLICT_STATUS) {
         setIsTempSaveBlocked(true);
@@ -245,7 +307,12 @@ export default function DailyRecordPage() {
                 <div className="font-bold text-xs">현재 제수량</div>
                 <div className="text-lg font-black">{currentUfValue > 0 ? `+${currentUfValue}` : currentUfValue} <span className="text-xs font-medium">mL</span></div>
               </div>
-              <button type="button" onClick={handleAddExchange} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-sm">
+              <button
+                type="button"
+                onClick={handleAddExchange}
+                disabled={isTempSaveBlocked}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
                 + 회차 추가
               </button>
             </div>
@@ -265,7 +332,14 @@ export default function DailyRecordPage() {
                     <span className={`font-black font-mono ${exchange.uf >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
                       {exchange.uf > 0 ? `+${exchange.uf}` : exchange.uf} mL
                     </span>
-                    <button onClick={() => handleRemoveExchange(index)} className="text-gray-300 hover:text-red-500 px-2">X</button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExchange(index)}
+                      disabled={isTempSaveBlocked}
+                      className="px-2 text-gray-300 hover:text-red-500 disabled:cursor-not-allowed disabled:text-gray-200"
+                    >
+                      X
+                    </button>
                   </div>
                 </div>
               ))}
@@ -335,9 +409,14 @@ export default function DailyRecordPage() {
           />
         </div>
 
-        <button type="button" onClick={handleSubmitAll} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-lg py-5 rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={handleSubmitAll}
+          disabled={isTempSaveBlocked}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-lg py-5 rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-          오늘 하루 기록 마감하기
+          {isTempSaveBlocked ? '오늘 기록 제출 완료' : '오늘 하루 기록 마감하기'}
         </button>
       </div>
     </div>
