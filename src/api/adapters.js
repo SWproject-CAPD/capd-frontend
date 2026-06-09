@@ -161,6 +161,8 @@ export const normalizePatient = (patient = {}) => ({
   id: patient.patientId,
   patientId: patient.patientId,
   userId: patient.userId,
+  doctorId: patient.doctorId ?? patient.assignedDoctorId ?? patient.primaryDoctorId ?? patient.doctor?.doctorId ?? patient.doctor?.id,
+  doctorName: patient.doctorName || patient.assignedDoctorName || patient.primaryDoctorName || patient.doctor?.doctorName || patient.doctor?.name || EMPTY_TEXT,
   name: patient.name || patient.patientName || EMPTY_TEXT,
   email: patient.email || EMPTY_TEXT,
   phone: patient.phone || EMPTY_TEXT,

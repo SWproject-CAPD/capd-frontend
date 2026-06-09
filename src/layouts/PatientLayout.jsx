@@ -2,30 +2,40 @@ import React from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import useAppStore from '../store/useAppStore';
 import { authApi } from '../api/apiClient';
-import { usePatientReservations } from '../hooks/usePatientData';
+import { usePatientMe, usePatientReservations } from '../hooks/usePatientData';
 
-const DOCTOR_REQUIRED_ALLOWED_PATHS = ['/patient', '/patient/record', '/patient/record_list', '/patient/mypage'];
+const DOCTOR_NOT_REQUIRED_PATHS = ['/patient/mypage'];
+
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+
+  const normalizedValue = String(value).trim();
+  return normalizedValue !== '' && normalizedValue !== '-' && normalizedValue !== '0';
+};
 
 export default function PatientLayout() {
   const { user, logout } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const {
+    data: patient,
+    isLoading: isPatientLoading,
+  } = usePatientMe();
+  const {
     data: reservations = [],
     isLoading: isReservationsLoading,
-    error: reservationsError,
   } = usePatientReservations();
+  const hasProfileDoctor = hasMeaningfulValue(patient?.doctorId) || hasMeaningfulValue(patient?.doctorName);
   const hasDoctorReservation = reservations.some(reservation => (
-    reservation.doctorName && reservation.doctorName !== '-'
+    hasMeaningfulValue(reservation.doctorId) || hasMeaningfulValue(reservation.doctorName)
   ));
-  // 현재 백엔드 응답에는 환자의 담당의사 정보가 직접 포함되지 않아 예약의 doctorName으로만 추정합니다.
-  // 예약이 없거나 조회가 실패한 경우는 담당의사 없음으로 단정할 수 없으므로 기능을 막지 않습니다.
-  const cannotConfirmMissingDoctor = reservations.length === 0 || Boolean(reservationsError);
-  const canUseDoctorRequiredPage = hasDoctorReservation || cannotConfirmMissingDoctor;
+  const hasAssignedDoctor = hasProfileDoctor || hasDoctorReservation;
+  const isDoctorStatusLoading = isPatientLoading || isReservationsLoading;
+  const isDoctorNotRequiredPage = DOCTOR_NOT_REQUIRED_PATHS.includes(location.pathname);
   const canUseCurrentPage = (
-    isReservationsLoading ||
-    canUseDoctorRequiredPage ||
-    DOCTOR_REQUIRED_ALLOWED_PATHS.includes(location.pathname)
+    isDoctorNotRequiredPage ||
+    isDoctorStatusLoading ||
+    hasAssignedDoctor
   );
 
   const handleLogout = async () => {
@@ -174,8 +184,6 @@ function PatientDoctorRequiredNotice() {
         </h1>
         <p className="mt-3 text-sm font-bold leading-relaxed text-slate-500">
           담당의사가 등록되면 이 기능을 사용할 수 있습니다.
-          <br />
-          현재는 투석 기록하기, 투석 기록보기, 내정보 기능만 이용할 수 있습니다.
         </p>
 
         <button
