@@ -80,10 +80,15 @@ export default function QuestionCheckPage() {
                         : 'border-slate-100 bg-slate-50 hover:border-blue-200 hover:bg-blue-50'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-black text-gray-900">
-                        {reservation.date} {reservation.time}
-                      </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-black text-gray-900">
+                          {reservation.type}
+                        </div>
+                        <div className="mt-1 text-[11px] font-bold text-gray-500">
+                          {reservation.date} {reservation.time}
+                        </div>
+                      </div>
                       {isActive && <span className="text-[10px] font-bold text-blue-500">선택됨</span>}
                     </div>
                   </button>
