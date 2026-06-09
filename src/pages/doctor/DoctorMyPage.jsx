@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../../store/useAppStore';
+import AccountDeleteModal from '../../components/AccountDeleteModal';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
 import { useDoctorMe, useDoctorPatientProfiles, useDoctorPatients } from '../../hooks/usePatientData';
 import { formatAge } from '../../utils/ageFormat';
 
 export default function DoctorMyPage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAppStore();
   const { data: doctor } = useDoctorMe();
@@ -74,6 +76,13 @@ export default function DoctorMyPage() {
                 >
                   비밀번호 변경
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-black text-red-200 shadow-sm transition-colors hover:bg-red-500/20 hover:text-red-100"
+                >
+                  회원탈퇴
+                </button>
               </div>
             </div>
           </div>
@@ -119,6 +128,10 @@ export default function DoctorMyPage() {
 
       {isPasswordModalOpen && (
         <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />
+      )}
+
+      {isDeleteModalOpen && (
+        <AccountDeleteModal role="doctor" onClose={() => setIsDeleteModalOpen(false)} />
       )}
     </div>
   );

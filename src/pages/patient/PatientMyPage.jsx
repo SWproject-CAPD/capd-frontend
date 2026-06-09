@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import useAppStore from '../../store/useAppStore';
+import AccountDeleteModal from '../../components/AccountDeleteModal';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
 import { getLatestRecord, usePatientCapdRecords, usePatientMe, usePatientReservations } from '../../hooks/usePatientData';
 import { getUpcomingReservation } from '../../hooks/usePatientData';
@@ -7,6 +8,7 @@ import { formatAge } from '../../utils/ageFormat';
 
 export default function PatientMyPage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { user } = useAppStore();
   const { data: patient } = usePatientMe();
   const { data: records = [] } = usePatientCapdRecords();
@@ -82,8 +84,31 @@ export default function PatientMyPage() {
         </div>
       </section>
 
+      <section className="rounded-4xl border border-red-100 bg-white p-5 shadow-sm md:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-black text-red-700">회원탈퇴</h2>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              계정을 더 이상 사용하지 않을 경우 탈퇴할 수 있습니다.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-black text-red-600 transition-colors hover:bg-red-100"
+          >
+            회원탈퇴
+          </button>
+        </div>
+      </section>
+
       {isPasswordModalOpen && (
         <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />
+      )}
+
+      {isDeleteModalOpen && (
+        <AccountDeleteModal role="patient" onClose={() => setIsDeleteModalOpen(false)} />
       )}
     </div>
   );
