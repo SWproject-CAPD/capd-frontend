@@ -4,7 +4,7 @@ import Card from '../../components/Card';
 import Sparkline from '../../components/Sparkline';
 import useAppStore from '../../store/useAppStore';
 import { capdApi, doctorApi } from '../../api/apiClient';
-import { normalizeCapd } from '../../api/adapters';
+import { formatPhoneNumber, normalizeCapd, normalizePatient } from '../../api/adapters';
 import { useDoctorPatients } from '../../hooks/usePatientData';
 import { formatAge } from '../../utils/ageFormat';
 
@@ -254,13 +254,41 @@ export default function DoctorHome() {
 
 function AddPatientModal({ onAdd, onClose }) {
   const [phone, setPhone] = useState('');
+  const [patientPreview, setPatientPreview] = useState(null);
+  const [error, setError] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (event) => {
+  const handlePhoneChange = (event) => {
+    setPhone(formatPhoneNumber(event.target.value));
+    setPatientPreview(null);
+    setError('');
+  };
+
+  const handleSearch = async (event) => {
     event.preventDefault();
     if (!phone.trim()) return;
 
+    setError('');
+    setPatientPreview(null);
+    setIsSearching(true);
+
+    try {
+      const patient = await doctorApi.getPatientByPhone(phone.trim());
+      setPatientPreview(normalizePatient(patient));
+    } catch (searchError) {
+      setError(searchError.message || '해당 전화번호의 환자를 찾지 못했습니다.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!patientPreview || !phone.trim()) return;
+
     setIsSubmitting(true);
+    setError('');
 
     try {
       await onAdd(phone.trim());
@@ -275,13 +303,13 @@ function AddPatientModal({ onAdd, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <form onSubmit={handleSubmit} className="flex w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <form onSubmit={patientPreview ? handleSubmit : handleSearch} className="flex w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="border-b border-slate-100 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-black text-slate-900">담당환자 추가</h2>
               <p className="mt-1 text-sm font-medium text-slate-500">
-                환자 전화번호를 입력해 본인의 담당 환자로 등록합니다.
+                환자 전화번호로 프로필을 확인한 뒤 담당 환자로 등록합니다.
               </p>
             </div>
             <button
@@ -296,22 +324,73 @@ function AddPatientModal({ onAdd, onClose }) {
           <input
             type="tel"
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            placeholder="환자 전화번호"
+            onChange={handlePhoneChange}
+            placeholder="010-0000-0000"
+            inputMode="numeric"
+            maxLength={13}
             className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
+
+          {error && (
+            <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+              {error}
+            </div>
+          )}
+
+          {patientPreview && (
+            <section className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="mb-3 text-xs font-black uppercase tracking-widest text-blue-500">Patient Profile</div>
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-lg font-black text-blue-600 shadow-sm">
+                  {patientPreview.name?.slice(0, 1) || '환'}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-lg font-black text-slate-900">{patientPreview.name}</div>
+                  <div className="mt-1 text-xs font-bold text-slate-500">
+                    {patientPreview.sex}/{formatAge(patientPreview.age)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                <PreviewInfo label="전화번호" value={patientPreview.phone || phone} />
+                <PreviewInfo label="성별/나이" value={`${patientPreview.sex}/${formatAge(patientPreview.age)}`} />
+              </div>
+            </section>
+          )}
         </div>
 
-        <div className="bg-slate-50 px-6 py-4">
+        <div className="flex gap-3 bg-slate-50 px-6 py-4">
+          {patientPreview && (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-500 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              취소
+            </button>
+          )}
           <button
             type="submit"
-            disabled={!phone.trim() || isSubmitting}
-            className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300"
+            disabled={!phone.trim() || isSearching || isSubmitting}
+            className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300"
           >
-            {isSubmitting ? '등록 중' : '추가하기'}
+            {patientPreview
+              ? isSubmitting ? '등록 중' : '추가하기'
+              : isSearching ? '조회 중' : '환자 조회'}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function PreviewInfo({ label, value }) {
+  return (
+    <div className="rounded-xl border border-blue-100 bg-white px-3 py-2">
+      <div className="text-[11px] font-black text-slate-400">{label}</div>
+      <div className="mt-0.5 font-black text-slate-800">{value || '-'}</div>
     </div>
   );
 }

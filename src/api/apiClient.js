@@ -233,6 +233,7 @@ export const doctorApi = {
   getPatients: () => apiRequest({ method: 'get', url: ENDPOINTS.doctors.patients }),
   registerPatient: (payload) => apiRequest({ method: 'post', url: ENDPOINTS.doctors.patients, data: payload }),
   getPatientProfile: (patientId) => apiRequest({ method: 'get', url: ENDPOINTS.doctors.patientById(patientId) }),
+  getPatientByPhone: (phone) => apiRequest({ method: 'get', url: ENDPOINTS.doctors.patientByPhone, params: { phone } }),
   searchPatientsByName: (name) => apiRequest({ method: 'get', url: ENDPOINTS.doctors.patientsByName, params: { name } }),
 };
 

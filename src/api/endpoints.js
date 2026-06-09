@@ -29,6 +29,7 @@ export const ENDPOINTS = {
     me: '/api/doctors/me',
     patients: '/api/doctors/patients',
     patientById: (patientId) => withPathParams('/api/doctors/patients/{patientId}', { patientId }),
+    patientByPhone: '/api/doctors/patients/phone',
     patientsByName: '/api/doctors/patients/name',
   },
   capds: {
