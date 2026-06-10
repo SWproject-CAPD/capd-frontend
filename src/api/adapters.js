@@ -157,21 +157,88 @@ export const parseOptions = (options) => {
   }
 };
 
-export const normalizePatient = (patient = {}) => ({
-  id: patient.patientId,
-  patientId: patient.patientId,
-  userId: patient.userId,
-  doctorId: patient.doctorId ?? patient.assignedDoctorId ?? patient.primaryDoctorId ?? patient.doctor?.doctorId ?? patient.doctor?.id,
-  doctorName: patient.doctorName || patient.assignedDoctorName || patient.primaryDoctorName || patient.doctor?.doctorName || patient.doctor?.name || EMPTY_TEXT,
-  name: patient.name || patient.patientName || EMPTY_TEXT,
-  email: patient.email || EMPTY_TEXT,
-  phone: patient.phone || EMPTY_TEXT,
-  sex: normalizeSex(patient.sex),
-  age: patient.age ?? EMPTY_TEXT,
-  role: patient.role,
-  createdAt: patient.createdAt,
-  updatedAt: patient.updatedAt,
-});
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+
+  const normalizedValue = String(value).trim();
+  return normalizedValue !== '' && normalizedValue !== '-' && normalizedValue !== '0';
+};
+
+const getFirstDefined = (...values) => values.find(value => value !== undefined && value !== null);
+
+const getFirstText = (...values) => values.find(value => hasMeaningfulValue(value)) || '';
+
+const getPatientDoctorCandidates = (patient = {}) => ([
+  patient.doctor,
+  patient.assignedDoctor,
+  patient.primaryDoctor,
+  patient.doctorInfo,
+  patient.assignedDoctorInfo,
+  patient.primaryDoctorInfo,
+  patient.careDoctor,
+  patient.managerDoctor,
+  patient.registeredDoctor,
+  patient.medicalStaff,
+  patient.physician,
+]).filter(candidate => candidate && typeof candidate === 'object' && !Array.isArray(candidate));
+
+export const normalizePatient = (patient = {}) => {
+  const doctorCandidates = getPatientDoctorCandidates(patient);
+  const doctor = doctorCandidates[0] || {};
+  const rawAssignedFlag = getFirstDefined(
+    patient.hasAssignedDoctor,
+    patient.hasDoctor,
+    patient.doctorAssigned,
+    patient.isDoctorAssigned,
+    patient.isAssigned,
+    patient.assigned,
+    patient.hasPrimaryDoctor,
+    patient.registeredDoctor === true ? true : undefined,
+  );
+  const doctorId = getFirstDefined(
+    patient.doctorId,
+    patient.assignedDoctorId,
+    patient.primaryDoctorId,
+    patient.doctorUserId,
+    patient.assignedDoctorUserId,
+    patient.primaryDoctorUserId,
+    doctor.doctorId,
+    doctor.id,
+    doctor.userId,
+  );
+  const doctorName = getFirstText(
+    patient.doctorName,
+    patient.assignedDoctorName,
+    patient.primaryDoctorName,
+    patient.doctorUserName,
+    patient.assignedDoctorUserName,
+    patient.primaryDoctorUserName,
+    doctor.doctorName,
+    doctor.name,
+    doctor.userName,
+  );
+  const hasAssignedDoctor = Boolean(rawAssignedFlag) ||
+    hasMeaningfulValue(doctorId) ||
+    hasMeaningfulValue(doctorName) ||
+    doctorCandidates.length > 0;
+
+  return {
+    id: patient.patientId,
+    patientId: patient.patientId,
+    userId: patient.userId,
+    doctorId,
+    doctorName: doctorName || EMPTY_TEXT,
+    hasAssignedDoctor,
+    name: patient.name || patient.patientName || EMPTY_TEXT,
+    email: patient.email || EMPTY_TEXT,
+    phone: patient.phone || EMPTY_TEXT,
+    sex: normalizeSex(patient.sex),
+    age: patient.age ?? EMPTY_TEXT,
+    role: patient.role,
+    createdAt: patient.createdAt,
+    updatedAt: patient.updatedAt,
+  };
+};
 
 export const normalizeDoctor = (doctor = {}) => ({
   id: doctor.doctorId,
@@ -364,6 +431,7 @@ export const normalizeReport = (report = {}) => ({
   endDate: report.endDate,
   docSaveLocation: report.docSaveLocation,
   riskLevel: report.anomalySummary ? '확인 필요' : '분석 완료',
+  anomalySummary: report.anomalySummary,
   summary: report.docSummary || '보고서 요약이 없습니다.',
   vitals: [
     { label: '체중 요약', value: report.weightSummary || EMPTY_TEXT, status: 'normal' },

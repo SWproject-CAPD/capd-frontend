@@ -65,6 +65,8 @@ const useAppStore = create((set) => ({
 }));
 
 if (typeof window !== 'undefined') {
+  let isAuthExpiredAlertOpen = false;
+
   window.addEventListener('capd:access-token-refreshed', (event) => {
     const session = event.detail;
     if (!session) return;
@@ -77,7 +79,15 @@ if (typeof window !== 'undefined') {
     });
   });
 
-  window.addEventListener('capd:auth-expired', () => {
+  window.addEventListener('capd:auth-expired', (event) => {
+    const state = useAppStore.getState();
+
+    if (!state.isAuthenticated || isAuthExpiredAlertOpen) return;
+
+    isAuthExpiredAlertOpen = true;
+    window.alert(event.detail?.message || '다른 곳에서 로그인했습니다.\n확인을 누르면 로그아웃됩니다.');
+    isAuthExpiredAlertOpen = false;
+
     useAppStore.getState().logout();
   });
 }

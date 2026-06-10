@@ -1,7 +1,12 @@
-import React from 'react';
+﻿import React from 'react';
 
-export default function ReadableText({ value, className = '' }) {
-  const blocks = parseReadableBlocks(value);
+export default function ReadableText({
+  value,
+  className = '',
+  splitLongText = false,
+  sentencesPerParagraph = 2,
+}) {
+  const blocks = parseReadableBlocks(value, { splitLongText, sentencesPerParagraph });
 
   return (
     <div className={`space-y-2 break-words ${className}`}>
@@ -58,8 +63,8 @@ function ReadableBlock({ block }) {
   return <p className="leading-7">{renderInlineMarkdown(block.text)}</p>;
 }
 
-function parseReadableBlocks(value) {
-  const text = String(value || '').trim();
+function parseReadableBlocks(value, options = {}) {
+  const text = normalizeReadableMarkdown(String(value || '').trim());
   if (!text) return [{ type: 'paragraph', text: '-' }];
 
   const lines = text
@@ -69,14 +74,91 @@ function parseReadableBlocks(value) {
     .filter(Boolean);
 
   const hasMarkdownShape = lines.some(
-    line => /^#{1,6}\s+/.test(line) || /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line),
+    line => /^#{1,6}\s+/.test(line) || /^[-*]\s+/.test(line) || /^\d+\.\s*/.test(line),
   );
 
   if (hasMarkdownShape) {
-    return lines.map(parseMarkdownLine);
+    return lines.flatMap(line => splitReadableBlock(parseMarkdownLine(line), options));
+  }
+
+  if (options.splitLongText) {
+    return splitNaturalParagraphs(text, options.sentencesPerParagraph)
+      .map(paragraph => ({ type: 'paragraph', text: paragraph }));
   }
 
   return [{ type: 'paragraph', text: text.replace(/\s+/g, ' ') }];
+}
+
+function splitReadableBlock(block, options = {}) {
+  if (!options.splitLongText || !['paragraph', 'bullet', 'ordered'].includes(block.type)) {
+    return [block];
+  }
+
+  const paragraphs = splitNaturalParagraphs(block.text, options.sentencesPerParagraph);
+  if (paragraphs.length <= 1) return [block];
+
+  return paragraphs.map((paragraph, index) => (
+    index === 0
+      ? { ...block, text: paragraph }
+      : { type: 'paragraph', text: paragraph }
+  ));
+}
+
+function normalizeReadableMarkdown(text) {
+  return text
+    .replace(/\*\*(\d+)\.\s*\n+\s*([^*\n]+?:)\*\*/g, '$1. **$2**')
+    .replace(/\*\*(\d+)\.\s*([^*\n]+?:)\*\*/g, '$1. **$2**');
+}
+
+function splitNaturalParagraphs(text, sentencesPerParagraph = 2) {
+  const compactText = text.replace(/\s+/g, ' ').trim();
+  const sentences = splitSentences(compactText);
+
+  if (sentences.length <= 1) {
+    return [compactText];
+  }
+
+  const paragraphSize = Math.max(1, sentencesPerParagraph);
+  const paragraphs = [];
+
+  for (let index = 0; index < sentences.length; index += paragraphSize) {
+    paragraphs.push(sentences.slice(index, index + paragraphSize).join(' '));
+  }
+
+  return paragraphs;
+}
+
+function splitSentences(text) {
+  const sentences = [];
+  let current = '';
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const prev = text[index - 1] || '';
+    const next = text[index + 1] || '';
+
+    current += char;
+
+    if (!['.', '!', '?'].includes(char)) continue;
+
+    const isDecimalPoint = /\d/.test(prev) && /\d/.test(next);
+    const hasBoundary = !next || /\s/.test(next);
+
+    if (!isDecimalPoint && hasBoundary) {
+      const sentence = current.trim();
+      if (sentence) sentences.push(sentence);
+      current = '';
+
+      while (/\s/.test(text[index + 1] || '')) {
+        index += 1;
+      }
+    }
+  }
+
+  const rest = current.trim();
+  if (rest) sentences.push(rest);
+
+  return sentences;
 }
 
 function parseMarkdownLine(line) {
@@ -92,7 +174,7 @@ function parseMarkdownLine(line) {
     return { type: 'bullet', text: bulletMatch[1].trim() };
   }
 
-  const orderedMatch = line.match(/^(\d+)\.\s+(.+)$/);
+  const orderedMatch = line.match(/^(\d+)\.\s*(.+)$/);
   if (orderedMatch) {
     return { type: 'ordered', order: orderedMatch[1], text: orderedMatch[2].trim() };
   }
@@ -110,6 +192,6 @@ function renderInlineMarkdown(text) {
         return <strong key={`${part}-${index}`} className="font-black">{boldMatch[2]}</strong>;
       }
 
-      return part;
+      return part.replace(/\*\*/g, '').replace(/__/g, '');
     });
 }

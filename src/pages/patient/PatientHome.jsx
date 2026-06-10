@@ -16,6 +16,9 @@ export default function PatientDashboard() {
   const { data: reservations = [] } = usePatientReservations();
   const { data: records = [] } = usePatientCapdRecords();
   const upcomingReservation = getUpcomingReservation(reservations);
+  const doctorName = patient?.doctorName && patient.doctorName !== '-'
+    ? patient.doctorName
+    : upcomingReservation?.doctorName;
   const latestRecord = getLatestRecord(records);
   const latestRecordSessions = latestRecord?.sessions || [];
   const latestRecordTime = latestRecordSessions[latestRecordSessions.length - 1]?.time;
@@ -34,7 +37,7 @@ export default function PatientDashboard() {
             안녕하세요, <span className="text-blue-600">{displayName}</span> 님!<br />
           </h1>
           <p className="text-slate-500 mt-2 font-medium">
-            담당의: {upcomingReservation?.doctorName ? `${upcomingReservation.doctorName} 선생님` : '예약 정보에서 확인 가능'}
+            담당의: {doctorName ? `${doctorName} 선생님` : '예약 정보에서 확인 가능'}
           </p>
         </div>
         

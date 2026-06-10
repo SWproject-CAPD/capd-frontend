@@ -16,6 +16,9 @@ export default function PatientMyPage() {
 
   const latestRecord = getLatestRecord(records);
   const nextReservation = getUpcomingReservation(reservations);
+  const doctorName = patient?.doctorName && patient.doctorName !== '-'
+    ? patient.doctorName
+    : nextReservation?.doctorName;
   const displayName = patient?.name || user?.name || '환자';
   const latestWeight = latestRecord?.weight;
 
@@ -45,7 +48,7 @@ export default function PatientMyPage() {
         <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-3 md:p-5">
           <ProfileStat label="최근 체중" value={latestWeight ? `${latestWeight} kg` : '-'} />
           <ProfileStat label="다음 예약" value={nextReservation ? nextReservation.date : '-'} />
-          <ProfileStat label="담당의사" value={nextReservation?.doctorName ? `${nextReservation.doctorName} 선생님` : '-'} />
+          <ProfileStat label="담당의사" value={doctorName ? `${doctorName} 선생님` : '-'} />
         </div>
       </section>
 

@@ -54,6 +54,9 @@ export default function PatientInsightPage() {
     Number(history[0]?.weight || 0) -
     Number((history[3] || history[history.length - 1] || history[0] || {}).weight || 0)
   ).toFixed(1);
+  const ufStatus = getUfStatus(avgUf3Days);
+  const bpStatus = getBpStatus(Number(latestRecord.bpSystolic || 0));
+  const weightStatus = getWeightStatus(Number(weightDiff3Days));
   const chartLabelPlacements = new Map();
 
   return (
@@ -170,9 +173,9 @@ export default function PatientInsightPage() {
           </div>
 
           <div className="flex-1 flex flex-col justify-between gap-2 overflow-y-auto">
-            <AnalysisRow label="최근 3일 제수량" value={`평균 ${formatSignedNumber(avgUf3Days)} mL`} warning={avgUf3Days <= 800} />
-            <AnalysisRow label="최근 혈압" value={`최근 ${latestRecord.bp || '-'}`} warning={Number(latestRecord.bpSystolic || 0) > 140} />
-            <AnalysisRow label="최근 3일 체중" value={`${Number(weightDiff3Days) > 0 ? '증가' : '감소'} (${Number(weightDiff3Days) > 0 ? '+' : ''}${weightDiff3Days}kg)`} />
+            <AnalysisRow label="최근 3일 제수량" value={`평균 ${formatSignedNumber(avgUf3Days)} mL`} status={ufStatus} />
+            <AnalysisRow label="최근 혈압" value={`최근 ${latestRecord.bp || '-'}`} status={bpStatus} />
+            <AnalysisRow label="최근 3일 체중" value={`${Number(weightDiff3Days) > 0 ? '증가' : '감소'} (${Number(weightDiff3Days) > 0 ? '+' : ''}${weightDiff3Days}kg)`} status={weightStatus} />
           </div>
         </div>
       </div>
@@ -316,16 +319,58 @@ function ChartValueLabel({ x, y, width = 0, value, fill, position = 'top', offse
   );
 }
 
-function AnalysisRow({ label, value, warning = false }) {
+const ANALYSIS_STATUS = {
+  stable: {
+    label: '안정',
+    rowClass: 'border border-emerald-100 bg-emerald-50/60',
+    badgeClass: 'bg-emerald-100 text-emerald-700',
+    dotClass: 'bg-emerald-500',
+  },
+  caution: {
+    label: '주의',
+    rowClass: 'border border-amber-100 bg-amber-50/60',
+    badgeClass: 'bg-amber-100 text-amber-700',
+    dotClass: 'bg-amber-500 animate-pulse',
+  },
+  danger: {
+    label: '위험',
+    rowClass: 'border border-red-100 bg-red-50/60',
+    badgeClass: 'bg-red-100 text-red-700',
+    dotClass: 'bg-red-500 animate-pulse',
+  },
+};
+
+function getUfStatus(avgUf) {
+  if (!avgUf) return ANALYSIS_STATUS.caution;
+  if (avgUf <= 500) return ANALYSIS_STATUS.danger;
+  if (avgUf <= 800) return ANALYSIS_STATUS.caution;
+  return ANALYSIS_STATUS.stable;
+}
+
+function getBpStatus(systolic) {
+  if (!systolic) return ANALYSIS_STATUS.caution;
+  if (systolic >= 180) return ANALYSIS_STATUS.danger;
+  if (systolic >= 140) return ANALYSIS_STATUS.caution;
+  return ANALYSIS_STATUS.stable;
+}
+
+function getWeightStatus(weightDiff) {
+  const absDiff = Math.abs(Number(weightDiff || 0));
+  if (absDiff >= 3) return ANALYSIS_STATUS.danger;
+  if (absDiff >= 1.5) return ANALYSIS_STATUS.caution;
+  return ANALYSIS_STATUS.stable;
+}
+
+function AnalysisRow({ label, value, status = ANALYSIS_STATUS.stable }) {
   return (
-    <div className={`flex items-center justify-between p-3 bg-slate-50 rounded-xl ${warning ? 'border border-yellow-200/50' : ''}`}>
+    <div className={`flex items-center justify-between p-3 rounded-xl ${status.rowClass}`}>
       <div>
         <div className="text-[11px] font-bold text-gray-500 mb-0.5">{label}</div>
         <div className="text-sm font-black text-gray-900">{value}</div>
       </div>
-      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold ${warning ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700'}`}>
-        <div className={`w-1.5 h-1.5 rounded-full ${warning ? 'bg-yellow-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-        {warning ? '주의' : '안정적'}
+      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold ${status.badgeClass}`}>
+        <div className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`}></div>
+        {status.label}
       </div>
     </div>
   );

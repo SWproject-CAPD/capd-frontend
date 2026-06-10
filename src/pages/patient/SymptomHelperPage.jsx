@@ -54,7 +54,11 @@ export default function SymptomHelperPage() {
                   : 'bg-white border border-gray-100 text-gray-800 rounded-bl-none'
               }`}>
                 {msg.sender === 'bot' ? (
-                  <ReadableText value={msg.text} className="whitespace-normal text-sm font-medium" />
+                  <ReadableText
+                    value={msg.text}
+                    splitLongText
+                    className="whitespace-normal text-sm font-medium"
+                  />
                 ) : (
                   msg.text
                 )}

@@ -25,9 +25,14 @@ export default function PatientLayout() {
     data: reservations = [],
     isLoading: isReservationsLoading,
   } = usePatientReservations();
-  const hasProfileDoctor = hasMeaningfulValue(patient?.doctorId) || hasMeaningfulValue(patient?.doctorName);
+  const hasProfileDoctor = Boolean(patient?.hasAssignedDoctor) ||
+    hasMeaningfulValue(patient?.doctorId) ||
+    hasMeaningfulValue(patient?.doctorName);
   const hasDoctorReservation = reservations.some(reservation => (
-    hasMeaningfulValue(reservation.doctorId) || hasMeaningfulValue(reservation.doctorName)
+    hasMeaningfulValue(reservation.doctorId) ||
+    hasMeaningfulValue(reservation.doctorName) ||
+    hasMeaningfulValue(reservation.reservationId) ||
+    hasMeaningfulValue(reservation.id)
   ));
   const hasAssignedDoctor = hasProfileDoctor || hasDoctorReservation;
   const isDoctorStatusLoading = isPatientLoading || isReservationsLoading;

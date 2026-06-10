@@ -3,26 +3,61 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../../components/Card';
 import Sparkline from '../../components/Sparkline';
 import useAppStore from '../../store/useAppStore';
-import { capdApi, doctorApi } from '../../api/apiClient';
-import { formatPhoneNumber, normalizeCapd, normalizePatient } from '../../api/adapters';
+import { anomalyApi, capdApi, doctorApi } from '../../api/apiClient';
+import { formatPhoneNumber, normalizeAnomaly, normalizeCapd, normalizePatient } from '../../api/adapters';
 import { useDoctorPatients } from '../../hooks/usePatientData';
 import { formatAge } from '../../utils/ageFormat';
+import { getAnomalyKey, getLatestAnomaly } from '../../utils/anomaly';
 
-function buildPatientRow(patient, records = []) {
+const ANOMALY_STATUS = {
+  normal: {
+    label: '정상',
+    badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    textClass: 'text-slate-900',
+  },
+  warning: {
+    label: '주의',
+    badgeClass: 'border-amber-200 bg-amber-50 text-amber-700',
+    textClass: 'text-slate-900',
+  },
+  danger: {
+    label: '위험',
+    badgeClass: 'border-red-200 bg-red-50 text-red-700',
+    textClass: 'text-red-600',
+  },
+};
+
+function getDoctorHomeAnomalyStatus(anomaly) {
+  const key = getAnomalyKey(anomaly);
+  return key === 'unknown' ? 'normal' : key;
+}
+
+function getBriefAnomalyIssues(anomaly) {
+  const causes = anomaly?.topCauses || [];
+  const topCause = [...causes].sort((a, b) => {
+    const aScore = Math.abs(Number(a.impact_score ?? a.impactScore ?? 0));
+    const bScore = Math.abs(Number(b.impact_score ?? b.impactScore ?? 0));
+    return bScore - aScore;
+  })[0];
+
+  if (topCause) {
+    return [`${topCause.feature || topCause.name || '주요 지표'}${topCause.direction ? ` ${topCause.direction}` : ''}`];
+  }
+  if (anomaly?.statusMessage) return [String(anomaly.statusMessage).split(/[.!?]/)[0].trim()].filter(Boolean);
+  return [];
+}
+
+function buildPatientRow(patient, records = [], anomalies = []) {
   const todayData = records[0] || {};
+  const latestAnomaly = getLatestAnomaly(anomalies);
+  const anomalyKey = getDoctorHomeAnomalyStatus(latestAnomaly);
+  const anomalyStatus = ANOMALY_STATUS[anomalyKey];
   const bp = todayData.bp || '-';
-  const sys = Number(todayData.bpSystolic || 0);
   const uf = Number(todayData.uf || 0);
   const fbs = Number(todayData.fbs || 0);
   const weight = todayData.weight || '-';
   const recordCount = todayData.exchanges ? todayData.exchanges.length : 0;
-  const isWarning = Boolean(records.length) && (sys >= 140 || fbs >= 126 || uf < 800 || recordCount < 4);
-
-  let aiMsg = records.length ? '안정적 (특이사항 없음)' : '최근 기록 없음';
-  if (records.length && recordCount < 4) aiMsg = '투석 횟수 부족 주의';
-  else if (records.length && sys >= 140) aiMsg = '수축기 혈압 높음 주의';
-  else if (records.length && fbs >= 126) aiMsg = '공복혈당 높음 주의';
-  else if (records.length && uf < 800) aiMsg = '제수량 부족 주의';
+  const anomalyIssues = anomalyKey === 'normal' ? [] : getBriefAnomalyIssues(latestAnomaly);
 
   return {
     ...patient,
@@ -31,9 +66,13 @@ function buildPatientRow(patient, records = []) {
     weight,
     bp,
     fbs: fbs || '-',
-    ai: aiMsg,
+    ai: anomalyIssues.length ? anomalyIssues.join(', ') : '안정적',
+    anomalyLabel: anomalyStatus.label,
+    anomalyClass: anomalyStatus.badgeClass,
+    anomalyTextClass: anomalyStatus.textClass,
+    anomalyKey,
     trend: records.slice(0, 7).reverse().map(record => record.uf),
-    isWarning,
+    isDanger: anomalyKey === 'danger',
   };
 }
 
@@ -42,12 +81,14 @@ export default function DoctorHome() {
   const { currentDoctorName } = useAppStore();
   const { data: assignedPatients = [], isLoading, reload } = useDoctorPatients();
   const [recordsByPatientId, setRecordsByPatientId] = useState({});
+  const [anomaliesByPatientId, setAnomaliesByPatientId] = useState({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isRecordsLoading, setIsRecordsLoading] = useState(false);
 
   useEffect(() => {
     if (assignedPatients.length === 0) {
       setRecordsByPatientId({});
+      setAnomaliesByPatientId({});
       return;
     }
 
@@ -60,16 +101,29 @@ export default function DoctorHome() {
         const entries = await Promise.all(
           assignedPatients.map(async (patient) => {
             try {
-              const records = await capdApi.getDoctorRecords(patient.id);
-              return [patient.id, (records || []).map(normalizeCapd).sort((a, b) => b.date.localeCompare(a.date))];
+              const [records, anomalies] = await Promise.all([
+                capdApi.getDoctorRecords(patient.id).catch(() => []),
+                anomalyApi.getResults(patient.id).catch(() => []),
+              ]);
+              const normalizedRecords = (records || []).map(normalizeCapd).sort((a, b) => b.date.localeCompare(a.date));
+              const latestRecordDate = normalizedRecords[0]?.date;
+              const weeklyAnomaly = latestRecordDate
+                ? await anomalyApi.analyze(patient.id, latestRecordDate).then(normalizeAnomaly).catch(() => null)
+                : null;
+
+              return [patient.id, {
+                records: normalizedRecords,
+                anomalies: weeklyAnomaly ? [weeklyAnomaly] : (anomalies || []).map(normalizeAnomaly),
+              }];
             } catch {
-              return [patient.id, []];
+              return [patient.id, { records: [], anomalies: [] }];
             }
           })
         );
 
         if (!ignore) {
-          setRecordsByPatientId(Object.fromEntries(entries));
+          setRecordsByPatientId(Object.fromEntries(entries.map(([patientId, value]) => [patientId, value.records])));
+          setAnomaliesByPatientId(Object.fromEntries(entries.map(([patientId, value]) => [patientId, value.anomalies])));
         }
       } finally {
         if (!ignore) setIsRecordsLoading(false);
@@ -84,8 +138,8 @@ export default function DoctorHome() {
   }, [assignedPatients]);
 
   const patientList = useMemo(() => (
-    assignedPatients.map(patient => buildPatientRow(patient, recordsByPatientId[patient.id] || []))
-  ), [assignedPatients, recordsByPatientId]);
+    assignedPatients.map(patient => buildPatientRow(patient, recordsByPatientId[patient.id] || [], anomaliesByPatientId[patient.id] || []))
+  ), [assignedPatients, recordsByPatientId, anomaliesByPatientId]);
 
   const summaryStats = {
     total: patientList.length,
@@ -168,12 +222,12 @@ export default function DoctorHome() {
                   key={patient.id}
                   onClick={() => navigate(`/doctor/${patient.id}`)}
                   className={`cursor-pointer transition-colors group ${
-                    patient.isWarning ? 'bg-red-50/30 hover:bg-red-50/80' : 'hover:bg-blue-50/50'
+                    patient.isDanger ? 'bg-red-50/30 hover:bg-red-50/80' : 'hover:bg-blue-50/50'
                   }`}
                 >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${patient.isWarning ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${patient.isDanger ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                         {patient.name[0]}
                       </div>
                       <div>
@@ -200,7 +254,7 @@ export default function DoctorHome() {
                   </td>
 
                   <td className="px-5 py-3.5 text-right">
-                    <span className={`font-mono font-bold ${patient.uf < 800 && patient.uf > 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                    <span className="font-mono font-bold text-slate-700">
                       {patient.uf || '-'} <span className="text-[10px] text-slate-400 font-sans font-normal">mL</span>
                     </span>
                   </td>
@@ -210,26 +264,31 @@ export default function DoctorHome() {
                   </td>
 
                   <td className="px-5 py-3.5 text-right">
-                    <span className={`font-bold ${parseInt(patient.bp.split('/')[0], 10) >= 140 ? 'text-red-600' : 'text-slate-700'}`}>
+                    <span className="font-bold text-slate-700">
                       {patient.bp}
                     </span>
                   </td>
 
                   <td className="px-5 py-3.5 text-right">
-                    <span className={`font-bold ${Number(patient.fbs) >= 126 ? 'text-orange-600' : 'text-slate-700'}`}>
+                    <span className="font-bold text-slate-700">
                       {patient.fbs}
                     </span>
                   </td>
 
                   <td className="px-5 py-3.5">
-                    <div className={`text-xs font-bold truncate max-w-50 ${patient.isWarning ? 'text-red-600' : 'text-slate-400 font-medium'}`}>
-                      {patient.ai}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${patient.anomalyClass}`}>
+                        {patient.anomalyLabel}
+                      </span>
+                      <div className={`min-w-0 max-w-50 truncate text-xs font-bold ${patient.anomalyTextClass}`}>
+                        {patient.ai}
+                      </div>
                     </div>
                   </td>
 
                   <td className="px-5 py-3.5 w-32">
                     <div className="flex items-center justify-center h-8 w-24 mx-auto bg-slate-50 rounded border border-slate-100 p-1">
-                      <Sparkline data={patient.trend} color={patient.isWarning ? '#ef4444' : '#3b82f6'} />
+                      <Sparkline data={patient.trend} color={patient.isDanger ? '#ef4444' : '#3b82f6'} />
                     </div>
                   </td>
                 </tr>

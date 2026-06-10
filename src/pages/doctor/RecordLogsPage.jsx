@@ -1,13 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BackToPatientButton from '../../components/BackToPatientButton';
-import { useDoctorPatientBundle } from '../../hooks/usePatientData';
+import { useAnomalyResults, useDoctorPatientBundle } from '../../hooks/usePatientData';
+import { ANOMALY_META, buildAnomalyByDate, getAnomalyMeta } from '../../utils/anomaly';
+
+const getRecordLogAnomalyMeta = (anomaly) => {
+  const meta = getAnomalyMeta(anomaly);
+  return meta.key === 'unknown' ? ANOMALY_META.normal : meta;
+};
 
 export default function RecordLogsPage() {
   const { id } = useParams();
   const { data, isLoading } = useDoctorPatientBundle(id);
+  const { data: anomalies = [] } = useAnomalyResults(id);
   const patient = data.patient;
   const history = data.records;
+  const anomalyByDate = useMemo(() => buildAnomalyByDate(anomalies), [anomalies]);
   const [openDateState, setOpenDateState] = useState({ patientId: null, dates: null });
   const [calendarDate, setCalendarDate] = useState(new Date());
 
@@ -96,6 +104,7 @@ export default function RecordLogsPage() {
                 const day = index + 1;
                 const currentStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const hasRecord = hasRecordOnDate(currentStr);
+                const anomalyMeta = getRecordLogAnomalyMeta(anomalyByDate.get(currentStr));
 
                 return (
                   <button
@@ -104,20 +113,23 @@ export default function RecordLogsPage() {
                     disabled={!hasRecord}
                     className={`h-10 flex flex-col items-center justify-center rounded-xl text-sm transition-all relative ${
                       hasRecord
-                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold cursor-pointer'
+                        ? `${anomalyMeta.calendarClass} font-bold cursor-pointer`
                         : 'text-gray-300 cursor-not-allowed'
                     }`}
                   >
                     {day}
-                    {hasRecord && <span className="w-1 h-1 rounded-full bg-blue-500 absolute bottom-1.5"></span>}
+                    {hasRecord && <span className={`w-1 h-1 rounded-full absolute bottom-1.5 ${anomalyMeta.dotClass}`}></span>}
                   </button>
                 );
               })}
             </div>
           </div>
 
+
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-xs text-gray-500 font-medium">
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span>기록 있음</div>
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>기록 있음(정상)</div>
+            <div className="mt-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-500"></span>주의</div>
+            <div className="mt-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span>위험</div>
           </div>
         </div>
 
@@ -126,6 +138,7 @@ export default function RecordLogsPage() {
             {history.map((dayData) => {
               const isOpen = displayOpenDates.includes(dayData.date);
               const isWarning = dayData.uf < 800 || dayData.bpSystolic >= 140;
+              const anomalyMeta = getRecordLogAnomalyMeta(anomalyByDate.get(dayData.date));
 
               return (
                 <div
@@ -148,6 +161,9 @@ export default function RecordLogsPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black ${anomalyMeta.badgeClass}`}>
+                        {anomalyMeta.label}
+                      </span>
                       <svg className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>

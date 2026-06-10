@@ -37,6 +37,7 @@ const refreshClient = axios.create({
 });
 
 let refreshRequest = null;
+const pendingGetRequests = new Map();
 
 const getRefreshEndpoint = (role) => (
   role === 'doctor' ? ENDPOINTS.auth.doctorTokenRefresh : ENDPOINTS.auth.patientTokenRefresh
@@ -125,8 +126,15 @@ apiClient.interceptors.response.use(
 
       return apiClient(originalRequest);
     } catch (refreshError) {
-      clearStoredSession();
-      window.dispatchEvent(new CustomEvent('capd:auth-expired'));
+      const refreshStatus = refreshError.response?.status;
+      window.dispatchEvent(new CustomEvent('capd:auth-expired', {
+        detail: {
+          reason: refreshStatus === 401 ? 'concurrent-login' : 'auth-expired',
+          message: refreshStatus === 401
+            ? '다른 곳에서 로그인했습니다.\n확인을 누르면 로그아웃됩니다.'
+            : '로그인 시간이 만료되었습니다.\n다시 로그인해주세요.',
+        },
+      }));
       throw refreshError;
     }
   },
@@ -146,18 +154,59 @@ const unwrap = (response) => {
   return body;
 };
 
-export const apiRequest = async (config) => {
-  try {
-    const response = await apiClient(config);
-    return unwrap(response);
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || '서버 요청 중 오류가 발생했습니다.';
-    const apiError = new Error(message);
-    apiError.status = error.response?.status;
-    apiError.data = error.response?.data;
-    throw apiError;
-  }
+const stableStringify = (value) => {
+  if (!value || typeof value !== 'object') return String(value ?? '');
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+
+  return Object.keys(value)
+    .sort()
+    .map(key => `${key}:${stableStringify(value[key])}`)
+    .join('|');
 };
+
+const createGetRequestKey = (config = {}) => {
+  const method = String(config.method || 'get').toLowerCase();
+  if (method !== 'get' || config.dedupe === false) return null;
+
+  return [
+    method,
+    config.baseURL || API_BASE_URL,
+    config.url || '',
+    stableStringify(config.params),
+  ].join('::');
+};
+
+export const apiRequest = async (config) => {
+  const requestKey = createGetRequestKey(config);
+
+  if (requestKey && pendingGetRequests.has(requestKey)) {
+    return pendingGetRequests.get(requestKey);
+  }
+
+  const request = (async () => {
+    try {
+      const response = await apiClient(config);
+      return unwrap(response);
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || '서버 요청 중 오류가 발생했습니다.';
+      const apiError = new Error(message);
+      apiError.status = error.response?.status;
+      apiError.data = error.response?.data;
+      throw apiError;
+    } finally {
+      if (requestKey) {
+        pendingGetRequests.delete(requestKey);
+      }
+    }
+  })();
+
+  if (requestKey) {
+    pendingGetRequests.set(requestKey, request);
+  }
+
+  return request;
+};
+
 
 export const authApi = {
   loginPatient: (payload) => apiRequest({

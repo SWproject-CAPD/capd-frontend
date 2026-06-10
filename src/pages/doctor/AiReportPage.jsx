@@ -1,12 +1,13 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import BackToPatientButton from '../../components/BackToPatientButton';
 import Card from '../../components/Card';
 import ReadableText from '../../components/ReadableText';
-import { reportApi } from '../../api/apiClient';
-import { normalizeReport } from '../../api/adapters';
+import { anomalyApi, reportApi } from '../../api/apiClient';
+import { normalizeAnomaly, normalizeReport } from '../../api/adapters';
 import { useDoctorPatientProfile, useDoctorPatientRecords, usePatientReports } from '../../hooks/usePatientData';
+import { getAnomalyCausesText, getAnomalySummaryText, getLatestAnomaly } from '../../utils/anomaly';
 
 export default function AiReportPage() {
   const { id } = useParams();
@@ -21,17 +22,66 @@ export default function AiReportPage() {
   const [selectedWeek, setSelectedWeek] = useState('1');
   const [isLoading, setIsLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
+  const [weeklyAnomaly, setWeeklyAnomaly] = useState(null);
   const reportPrintRef = useRef(null);
 
   const activeReport = reportData || savedReports[0] || null;
   const reportChartData = useMemo(() => (
     buildReportChartData(activeReport, patientRecords)
   ), [activeReport, patientRecords]);
+  const reportAnomalyStartDate = activeReport?.startDate || '';
+  const reportAnomalyDate = activeReport?.endDate || '';
+  const reportAnalysisItems = useMemo(() => {
+    const baseItems = removeReportAnomalySummary(activeReport?.analysis || [], activeReport?.anomalySummary);
+    const anomalyText = weeklyAnomaly
+      ? `${getAnomalySummaryText(weeklyAnomaly)} 주요 원인: ${getAnomalyCausesText(weeklyAnomaly)}`
+      : '특이 이상치 없음';
+
+    return insertAnomalyAnalysisText(baseItems, anomalyText);
+  }, [activeReport, weeklyAnomaly]);
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
   const yearOptions = useMemo(() => {
     const year = initialDate.getFullYear();
     return [year - 1, year, year + 1];
   }, [initialDate]);
+
+  useEffect(() => {
+    if (!patientId || !reportAnomalyDate) {
+      setWeeklyAnomaly(null);
+      return undefined;
+    }
+
+    let ignore = false;
+
+    const loadWeeklyAnomaly = async () => {
+      try {
+        const response = await anomalyApi.analyze(patientId, reportAnomalyDate);
+        const normalized = normalizeWeeklyAnomalyResult(response, reportAnomalyStartDate, reportAnomalyDate);
+
+        if (!ignore && normalized) {
+          setWeeklyAnomaly(normalized || null);
+          return;
+        }
+
+        throw new Error('보고서 기간에 해당하는 이상치 결과가 없습니다.');
+      } catch {
+        try {
+          const results = await anomalyApi.getResults(patientId);
+          if (!ignore) {
+            setWeeklyAnomaly(selectAnomalyForReportPeriod(results, reportAnomalyStartDate, reportAnomalyDate));
+          }
+        } catch {
+          if (!ignore) setWeeklyAnomaly(null);
+        }
+      }
+    };
+
+    loadWeeklyAnomaly();
+
+    return () => {
+      ignore = true;
+    };
+  }, [patientId, reportAnomalyDate, reportAnomalyStartDate]);
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
@@ -65,7 +115,7 @@ export default function AiReportPage() {
       ...activeReport.vitals.map(item => `- ${item.label}: ${item.value}`),
       '',
       'AI 정밀 데이터 분석',
-      ...activeReport.analysis.map((text, index) => `${index + 1}. ${text}`),
+      ...reportAnalysisItems.map((text, index) => `${index + 1}. ${text}`),
       '',
       `권고사항: ${activeReport.recommendation}`,
     ].join('\n');
@@ -388,7 +438,12 @@ export default function AiReportPage() {
                   <div className="ai-report-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-6 custom-scrollbar">
                     <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5">
                       <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-blue-500">Summary</div>
-                      <ReadableText value={activeReport.summary} className="text-base font-semibold leading-8 text-slate-800 md:text-lg" />
+                      <ReadableText
+                        value={activeReport.summary}
+                        splitLongText
+                        sentencesPerParagraph={1}
+                        className="text-base font-semibold leading-8 text-slate-800 md:text-lg"
+                      />
                     </section>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -440,19 +495,29 @@ export default function AiReportPage() {
                     </ReportSection>
 
                     <ReportSection title="AI 정밀 데이터 분석">
-                      {activeReport.analysis.map((text, index) => (
+                      {reportAnalysisItems.map((text, index) => (
                         <div key={`${text}-${index}`} className="group flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600 transition-colors group-hover:bg-blue-100">
                             {index + 1}
                           </span>
-                          <ReadableText value={text} className="text-sm font-medium leading-7 text-gray-700" />
+                          <ReadableText
+                            value={text}
+                            splitLongText
+                            sentencesPerParagraph={1}
+                            className="text-sm font-medium leading-7 text-gray-700"
+                          />
                         </div>
                       ))}
                     </ReportSection>
 
                     <div className="rounded-3xl border border-blue-800 bg-blue-900 p-6 text-white shadow-lg">
                       <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-blue-200">Medical Recommendation</h3>
-                      <ReadableText value={activeReport.recommendation} className="text-base font-semibold leading-8 md:text-lg" />
+                      <ReadableText
+                        value={activeReport.recommendation}
+                        splitLongText
+                        sentencesPerParagraph={1}
+                        className="text-base font-semibold leading-8 md:text-lg"
+                      />
                     </div>
                   </div>
                 </>
@@ -630,6 +695,45 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function normalizeWeeklyAnomalyResult(response, startDate, endDate) {
+  if (Array.isArray(response)) {
+    return selectAnomalyForReportPeriod(response, startDate, endDate);
+  }
+
+  const normalized = response ? normalizeAnomaly(response) : null;
+  return isAnomalyInReportPeriod(normalized, startDate, endDate) ? normalized : null;
+}
+
+function selectAnomalyForReportPeriod(results, startDate, endDate) {
+  const normalized = (Array.isArray(results) ? results : [])
+    .map(normalizeAnomaly)
+    .filter(anomaly => anomaly.analysisDate);
+
+  return getLatestAnomaly(normalized.filter(anomaly => isAnomalyInReportPeriod(anomaly, startDate, endDate)));
+}
+
+function isAnomalyInReportPeriod(anomaly, startDate, endDate) {
+  if (!anomaly?.analysisDate) return false;
+  if (startDate && anomaly.analysisDate < startDate) return false;
+  if (endDate && anomaly.analysisDate > endDate) return false;
+  return true;
+}
+
+function removeReportAnomalySummary(items, anomalySummary) {
+  if (!anomalySummary) return items;
+  return items.filter(item => item !== anomalySummary);
+}
+
+function insertAnomalyAnalysisText(items, anomalyText) {
+  if (items.length <= 1) return [...items, anomalyText];
+
+  return [
+    items[0],
+    anomalyText,
+    ...items.slice(1),
+  ];
 }
 
 function buildReportChartData(report, records = []) {
