@@ -1,4 +1,5 @@
 import React from 'react';
+import ReadableText from '../../components/ReadableText';
 import useAppStore from '../../store/useAppStore';
 import useAiAgent from '../../hooks/useAiAgent';
 
@@ -52,7 +53,11 @@ export default function SymptomHelperPage() {
                   ? 'bg-purple-500 text-white rounded-br-none' 
                   : 'bg-white border border-gray-100 text-gray-800 rounded-bl-none'
               }`}>
-                {msg.text}
+                {msg.sender === 'bot' ? (
+                  <ReadableText value={msg.text} className="whitespace-normal text-sm font-medium" />
+                ) : (
+                  msg.text
+                )}
               </div>
             </div>
           ))}

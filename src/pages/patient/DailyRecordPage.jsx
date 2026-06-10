@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { capdApi } from '../../api/apiClient';
 import { normalizeCapd, toCapdPayload, toDateKey, toKoreanDate } from '../../api/adapters';
@@ -28,17 +28,29 @@ const readLocalDraft = (date) => {
   }
 };
 
-const saveLocalDraft = (date, dailyInfo, exchanges) => {
-  localStorage.setItem(getLocalDraftKey(date), JSON.stringify({
-    dailyInfo,
-    exchanges,
-    updatedAt: new Date().toISOString(),
-  }));
-};
-
 const clearLocalDraft = (date) => {
   localStorage.removeItem(getLocalDraftKey(date));
 };
+
+const toCommonUpdatePayload = (payload) => ({
+  cloudyDialysate: payload.cloudyDialysate,
+  urinationCount: payload.urinationCount,
+  bodyWeight: payload.bodyWeight,
+  bloodPressureSys: payload.bloodPressureSys,
+  bloodPressureDia: payload.bloodPressureDia,
+  fastingBloodSugar: payload.fastingBloodSugar,
+  note: payload.note,
+});
+
+const toDailyInfo = (record) => ({
+  turbidity: record.turbidity,
+  urineCount: record.urineCount,
+  weight: record.weight,
+  bpSystolic: record.bpSystolic,
+  bpDiastolic: record.bpDiastolic,
+  fbs: record.fbs,
+  memo: record.memo,
+});
 
 export default function DailyRecordPage() {
   const navigate = useNavigate();
@@ -51,6 +63,7 @@ export default function DailyRecordPage() {
   const [exchanges, setExchanges] = useState(() => localDraft?.exchanges || []);
   const [autoSaveStatus, setAutoSaveStatus] = useState(localDraft ? '임시 저장 불러옴' : '자동 저장 대기');
   const [isTempSaveBlocked, setIsTempSaveBlocked] = useState(false);
+  const [tempRecordId, setTempRecordId] = useState(null);
   const [currentExchange, setCurrentExchange] = useState({
     time: '08:00',
     concentration: '1.5',
@@ -58,56 +71,74 @@ export default function DailyRecordPage() {
     drained: '',
   });
 
+  const applyRecordToState = useCallback((record) => {
+    const normalizedRecord = normalizeCapd(record);
+
+    setDailyInfo(toDailyInfo(normalizedRecord));
+    setExchanges(normalizedRecord.exchanges || []);
+    setTempRecordId(normalizedRecord.capdId || null);
+
+    return normalizedRecord;
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
-    const loadSubmittedRecord = async () => {
+    const loadTodayRecord = async () => {
       try {
         const record = await capdApi.getMineByDate(formattedDate);
-        const normalizedRecord = record ? normalizeCapd(record) : null;
-        const isSubmitted = normalizedRecord && String(normalizedRecord.status || '').toUpperCase() !== 'TEMP';
+        if (ignore || !record) return;
 
-        if (ignore || !isSubmitted) return;
+        const normalizedRecord = applyRecordToState(record);
+        const isSubmitted = String(normalizedRecord.status || '').toUpperCase() !== 'TEMP';
 
-        setDailyInfo({
-          turbidity: normalizedRecord.turbidity,
-          urineCount: normalizedRecord.urineCount,
-          weight: normalizedRecord.weight,
-          bpSystolic: normalizedRecord.bpSystolic,
-          bpDiastolic: normalizedRecord.bpDiastolic,
-          fbs: normalizedRecord.fbs,
-          memo: normalizedRecord.memo,
-        });
-        setExchanges(normalizedRecord.exchanges || []);
-        setIsTempSaveBlocked(true);
-        setAutoSaveStatus('이미 제출됨');
+        setIsTempSaveBlocked(isSubmitted);
+        setAutoSaveStatus(isSubmitted ? '이미 제출됨' : '서버 임시 저장 불러옴');
         clearLocalDraft(formattedDate);
       } catch (error) {
         if (error.status !== 404) {
-          // 오늘 제출 기록 확인 실패는 입력 자체를 막지 않습니다.
+          setAutoSaveStatus(error.message || '기록 조회 실패');
         }
       }
     };
 
-    loadSubmittedRecord();
+    loadTodayRecord();
 
     return () => {
       ignore = true;
     };
-  }, [formattedDate]);
+  }, [applyRecordToState, formattedDate]);
 
-  const saveTempRecord = (infoData = dailyInfo, exchangeList = exchanges) => {
+  const saveTempRecord = async (infoData = dailyInfo, exchangeList = exchanges, options = {}) => {
     if (isTempSaveBlocked) return false;
 
-    setAutoSaveStatus('자동 저장 중');
+    setAutoSaveStatus('서버 임시 저장 중');
 
     try {
-      // 서버 임시저장은 실제 TEMP 기록을 만들어 최종 제출과 충돌할 수 있어, 입력 중에는 브라우저에만 보관합니다.
-      saveLocalDraft(formattedDate, infoData, exchangeList);
-      setAutoSaveStatus('임시 저장 완료');
+      const payload = toCapdPayload({
+        date: formattedDate,
+        dailyInfo: infoData,
+        exchanges: options.sessionsOnly ? (options.sessions || []) : exchangeList,
+      });
+      const savedRecord = tempRecordId && !options.sessionsOnly
+        ? await capdApi.updateCommon(tempRecordId, toCommonUpdatePayload(payload))
+        : await capdApi.saveTemp(payload);
+      const normalizedRecord = savedRecord ? normalizeCapd(savedRecord) : null;
+
+      if (normalizedRecord?.capdId) {
+        setTempRecordId(normalizedRecord.capdId);
+      }
+
+      if (Array.isArray(savedRecord?.sessions)) {
+        const savedExchanges = normalizedRecord.exchanges || [];
+        setExchanges(options.sessionsOnly && savedExchanges.length < exchangeList.length ? exchangeList : savedExchanges);
+      }
+
+      clearLocalDraft(formattedDate);
+      setAutoSaveStatus('서버 임시 저장 완료');
       return true;
     } catch (error) {
-      setAutoSaveStatus(error.message || '자동 저장 실패');
+      setAutoSaveStatus(error.message || '서버 임시 저장 실패');
       return false;
     }
   };
@@ -182,9 +213,14 @@ export default function DailyRecordPage() {
     };
 
     const newExchangesList = [...exchanges, newExchange].sort((a, b) => a.time.localeCompare(b.time));
-
     setExchanges(newExchangesList);
-    await saveTempRecord(dailyInfo, newExchangesList);
+
+    const saved = await saveTempRecord(dailyInfo, newExchangesList, tempRecordId ? {
+      sessionsOnly: true,
+      sessions: [newExchange],
+    } : {});
+
+    if (!saved) return;
 
     const now = new Date();
     const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -197,11 +233,26 @@ export default function DailyRecordPage() {
       return;
     }
 
+    const removedExchange = exchanges[index];
+    const sessionId = removedExchange?.capdSessionId || removedExchange?.id;
     const newList = exchanges.filter((_, itemIndex) => itemIndex !== index)
       .map((exchange, itemIndex) => ({ ...exchange, sessionNumber: itemIndex + 1 }));
 
-    setExchanges(newList);
-    await saveTempRecord(dailyInfo, newList);
+    try {
+      if (sessionId) {
+        setAutoSaveStatus('서버 임시 저장 중');
+        await capdApi.deleteSession(sessionId);
+        clearLocalDraft(formattedDate);
+        setAutoSaveStatus('서버 임시 저장 완료');
+      } else {
+        const saved = await saveTempRecord(dailyInfo, newList);
+        if (!saved) return;
+      }
+
+      setExchanges(newList);
+    } catch (error) {
+      setAutoSaveStatus(error.message || '서버 임시 저장 실패');
+    }
   };
 
   const handleSubmitAll = async () => {
@@ -217,7 +268,7 @@ export default function DailyRecordPage() {
     }
 
     const confirmFinalSubmit = window.confirm(
-      "오늘 하루 기록 마감하기 버튼 클릭 시 제출 후에는 수정이 불가능 합니다.\n그래도 제출하시겠습니까?\n\n(지금까지 작성한 내용은 자동 저장되고 있습니다)"
+      '오늘 하루 기록 마감하기 버튼 클릭 시 제출 후에는 수정이 불가능합니다.\n그래도 제출하시겠습니까?\n\n(지금까지 작성한 내용은 서버에 임시 저장되고 있습니다)',
     );
 
     if (!confirmFinalSubmit) return;
@@ -231,24 +282,18 @@ export default function DailyRecordPage() {
       const normalizedRecord = submittedRecord ? normalizeCapd(submittedRecord) : null;
 
       clearLocalDraft(formattedDate);
-      if (normalizedRecord?.exchanges?.length) {
-        setDailyInfo({
-          turbidity: normalizedRecord.turbidity,
-          urineCount: normalizedRecord.urineCount,
-          weight: normalizedRecord.weight,
-          bpSystolic: normalizedRecord.bpSystolic,
-          bpDiastolic: normalizedRecord.bpDiastolic,
-          fbs: normalizedRecord.fbs,
-          memo: normalizedRecord.memo,
-        });
-        setExchanges(normalizedRecord.exchanges);
+      if (normalizedRecord) {
+        setDailyInfo(toDailyInfo(normalizedRecord));
+        setExchanges(normalizedRecord.exchanges || []);
       }
       setIsTempSaveBlocked(true);
+      setTempRecordId(null);
       setAutoSaveStatus('이미 제출됨');
       alert('오늘 하루의 기록이 성공적으로 제출되었습니다!');
     } catch (error) {
       if (error.status === CAPD_CONFLICT_STATUS) {
         setIsTempSaveBlocked(true);
+        setTempRecordId(null);
         setAutoSaveStatus('이미 제출됨');
         clearLocalDraft(formattedDate);
         alert(CAPD_CONFLICT_MESSAGE);
@@ -282,10 +327,23 @@ export default function DailyRecordPage() {
           <div className="space-y-5 bg-slate-50/50 p-4 rounded-xl border border-gray-100 mb-6">
             <div className="grid grid-cols-2 gap-4">
               <Field label="교환 시각">
-                <input type="time" name="time" value={currentExchange.time} onChange={handleExchangeChange} className="ios-fixed-time-input h-12 min-h-12 w-full min-w-0 appearance-none bg-white border border-gray-200 rounded-xl px-3 text-base leading-none focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="time"
+                  name="time"
+                  value={currentExchange.time}
+                  onChange={handleExchangeChange}
+                  disabled={isTempSaveBlocked}
+                  className="ios-fixed-time-input h-12 min-h-12 w-full min-w-0 appearance-none bg-white border border-gray-200 rounded-xl px-3 text-base leading-none focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </Field>
               <Field label="투석액 농도 (%)">
-                <select name="concentration" value={currentExchange.concentration} onChange={handleExchangeChange} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                <select
+                  name="concentration"
+                  value={currentExchange.concentration}
+                  onChange={handleExchangeChange}
+                  disabled={isTempSaveBlocked}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                >
                   <option value="1.5">1.5%</option>
                   <option value="2.5">2.5%</option>
                   <option value="4.25">4.25%</option>
@@ -295,10 +353,26 @@ export default function DailyRecordPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="주입량 (mL)">
-                <input type="number" name="infused" value={currentExchange.infused} onChange={handleExchangeChange} placeholder="예: 2000" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  name="infused"
+                  value={currentExchange.infused}
+                  onChange={handleExchangeChange}
+                  disabled={isTempSaveBlocked}
+                  placeholder="예: 2000"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </Field>
               <Field label="배액량 (mL)">
-                <input type="number" name="drained" value={currentExchange.drained} onChange={handleExchangeChange} placeholder="예: 2200" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  name="drained"
+                  value={currentExchange.drained}
+                  onChange={handleExchangeChange}
+                  disabled={isTempSaveBlocked}
+                  placeholder="예: 2200"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </Field>
             </div>
 
@@ -356,35 +430,82 @@ export default function DailyRecordPage() {
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <Field label="체중 (kg)">
-                <input type="number" step="0.1" name="weight" value={dailyInfo.weight} onChange={handleDailyChange} onBlur={handleBlur} placeholder="00.0" className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  step="0.1"
+                  name="weight"
+                  value={dailyInfo.weight}
+                  onChange={handleDailyChange}
+                  onBlur={handleBlur}
+                  disabled={isTempSaveBlocked}
+                  placeholder="00.0"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </Field>
               <Field label="소변 횟수 (회)">
-                <input type="number" name="urineCount" value={dailyInfo.urineCount} onChange={handleDailyChange} onBlur={handleBlur} placeholder="0" className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  name="urineCount"
+                  value={dailyInfo.urineCount}
+                  onChange={handleDailyChange}
+                  onBlur={handleBlur}
+                  disabled={isTempSaveBlocked}
+                  placeholder="0"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </Field>
             </div>
 
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">혈압 (mmHg)</label>
               <div className="flex items-center gap-3">
-                <input type="number" name="bpSystolic" value={dailyInfo.bpSystolic} onChange={handleDailyChange} onBlur={handleBlur} placeholder="수축기" className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  name="bpSystolic"
+                  value={dailyInfo.bpSystolic}
+                  onChange={handleDailyChange}
+                  onBlur={handleBlur}
+                  disabled={isTempSaveBlocked}
+                  placeholder="수축기"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
                 <span className="text-gray-300">/</span>
-                <input type="number" name="bpDiastolic" value={dailyInfo.bpDiastolic} onChange={handleDailyChange} onBlur={handleBlur} placeholder="이완기" className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  name="bpDiastolic"
+                  value={dailyInfo.bpDiastolic}
+                  onChange={handleDailyChange}
+                  onBlur={handleBlur}
+                  disabled={isTempSaveBlocked}
+                  placeholder="이완기"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="공복혈당 (mg/dL)">
-                <input type="number" name="fbs" value={dailyInfo.fbs} onChange={handleDailyChange} onBlur={handleBlur} placeholder="000" className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input
+                  type="number"
+                  name="fbs"
+                  value={dailyInfo.fbs}
+                  onChange={handleDailyChange}
+                  onBlur={handleBlur}
+                  disabled={isTempSaveBlocked}
+                  placeholder="000"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100"
+                />
               </Field>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">복막액 혼탁도</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">복막액 혼탁</label>
                 <div className="grid grid-cols-2 gap-2 h-11.5">
                   {['맑음', '혼탁'].map((value) => (
                     <button
                       key={value}
                       type="button"
                       onClick={() => handleTurbidityClick(value)}
-                      className={`rounded-xl font-bold border transition-all ${dailyInfo.turbidity === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+                      disabled={isTempSaveBlocked}
+                      className={`rounded-xl font-bold border transition-all disabled:cursor-not-allowed ${dailyInfo.turbidity === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
                     >
                       {value}
                     </button>
@@ -404,8 +525,9 @@ export default function DailyRecordPage() {
             value={dailyInfo.memo}
             onChange={handleDailyChange}
             onBlur={handleBlur}
+            disabled={isTempSaveBlocked}
             placeholder="오늘의 특이사항이나 궁금한 점을 적어주세요. 담당 의사 선생님께 전달됩니다."
-            className="w-full h-24 bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+            className="w-full h-24 bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none disabled:bg-slate-100"
           />
         </div>
 

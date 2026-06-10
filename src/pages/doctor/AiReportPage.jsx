@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import BackToPatientButton from '../../components/BackToPatientButton';
 import Card from '../../components/Card';
+import ReadableText from '../../components/ReadableText';
 import { reportApi } from '../../api/apiClient';
 import { normalizeReport } from '../../api/adapters';
 import { useDoctorPatientProfile, useDoctorPatientRecords, usePatientReports } from '../../hooks/usePatientData';
@@ -387,18 +388,14 @@ export default function AiReportPage() {
                   <div className="ai-report-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-6 custom-scrollbar">
                     <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5">
                       <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-blue-500">Summary</div>
-                      <p className="text-base font-bold leading-8 text-slate-800 md:text-lg">
-                        {activeReport.summary}
-                      </p>
+                      <ReadableText value={activeReport.summary} className="text-base font-semibold leading-8 text-slate-800 md:text-lg" />
                     </section>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       {activeReport.vitals.map((item, index) => (
                         <div key={`${item.label}-${index}`} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                           <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{item.label}</span>
-                          <span className="mt-2 block text-sm font-black leading-6 text-slate-800">
-                            {item.value}
-                          </span>
+                          <ReadableText value={item.value} className="mt-2 text-sm font-semibold leading-6 text-slate-800" />
                         </div>
                       ))}
                     </div>
@@ -448,14 +445,14 @@ export default function AiReportPage() {
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600 transition-colors group-hover:bg-blue-100">
                             {index + 1}
                           </span>
-                          <p className="text-sm font-medium leading-7 text-gray-700">{text}</p>
+                          <ReadableText value={text} className="text-sm font-medium leading-7 text-gray-700" />
                         </div>
                       ))}
                     </ReportSection>
 
                     <div className="rounded-3xl border border-blue-800 bg-blue-900 p-6 text-white shadow-lg">
                       <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-blue-200">Medical Recommendation</h3>
-                      <p className="text-base font-bold leading-8 md:text-lg">{activeReport.recommendation}</p>
+                      <ReadableText value={activeReport.recommendation} className="text-base font-semibold leading-8 md:text-lg" />
                     </div>
                   </div>
                 </>

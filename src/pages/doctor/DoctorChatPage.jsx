@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import ReadableText from '../../components/ReadableText';
 import useAiAgent from '../../hooks/useAiAgent';
 import { formatAge } from '../../utils/ageFormat';
 
@@ -189,7 +190,11 @@ function ChatPanel({
                   : 'rounded-bl-none border border-slate-100 bg-white text-slate-700'
               }`}
             >
-              {message.text}
+              {message.sender === 'bot' ? (
+                <ReadableText value={message.text} className="text-sm font-medium" />
+              ) : (
+                message.text
+              )}
             </div>
           </div>
         ))}
