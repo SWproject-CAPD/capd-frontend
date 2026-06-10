@@ -117,9 +117,53 @@ export default function AiReportPage() {
               padding: 0;
               font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             }
+            .print-preview-toolbar {
+              position: sticky;
+              top: 0;
+              z-index: 100;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 16px;
+              border-bottom: 1px solid #e2e8f0;
+              background: rgba(255, 255, 255, 0.96);
+              padding: 14px 20px;
+              backdrop-filter: blur(12px);
+            }
+            .print-preview-toolbar-title {
+              min-width: 0;
+              font-size: 14px;
+              font-weight: 900;
+              color: #0f172a;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .print-preview-toolbar-actions {
+              display: flex;
+              flex-shrink: 0;
+              gap: 8px;
+            }
+            .print-preview-button {
+              border: 0;
+              border-radius: 999px;
+              background: #2563eb;
+              color: #ffffff;
+              cursor: pointer;
+              font-size: 13px;
+              font-weight: 900;
+              padding: 10px 16px;
+            }
+            .print-preview-button.secondary {
+              border: 1px solid #cbd5e1;
+              background: #ffffff;
+              color: #475569;
+            }
             .print-report-page {
               width: 100%;
-              max-width: 100%;
+              max-width: 794px;
+              margin: 0 auto;
+              padding: 20px;
             }
             .ai-report-print-root,
             .ai-report-print-shell,
@@ -155,8 +199,38 @@ export default function AiReportPage() {
             .ai-report-print-root .md\\:grid-cols-3 {
               grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
             }
+            .ai-report-print-root .inline-flex {
+              display: inline-block !important;
+              max-width: 100% !important;
+              white-space: normal !important;
+              line-height: 1.6 !important;
+            }
+            .ai-report-print-root .overflow-hidden {
+              overflow: visible !important;
+            }
             .ai-report-print-root .recharts-responsive-container {
+              width: 100% !important;
+              height: 96px !important;
               min-height: 96px !important;
+              max-height: 96px !important;
+              overflow: visible !important;
+            }
+            .ai-report-print-root .recharts-wrapper,
+            .ai-report-print-root .recharts-surface {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+            .ai-report-print-root .recharts-surface {
+              height: 96px !important;
+              overflow: visible !important;
+            }
+            .report-screen-chart {
+              display: none !important;
+            }
+            .report-print-chart {
+              display: block !important;
+              width: 100% !important;
+              height: 96px !important;
             }
             .ai-report-print-root p,
             .ai-report-print-root h1,
@@ -175,21 +249,29 @@ export default function AiReportPage() {
               .ai-report-print-actions {
                 display: none !important;
               }
+              .print-preview-toolbar {
+                display: none !important;
+              }
+              .print-report-page {
+                padding: 0 !important;
+              }
             }
           </style>
         </head>
         <body>
+          <div class="print-preview-toolbar">
+            <div class="print-preview-toolbar-title">${escapeHtml(printTitle)}</div>
+            <div class="print-preview-toolbar-actions">
+              <button type="button" class="print-preview-button secondary" onclick="window.close()">닫기</button>
+              <button type="button" class="print-preview-button" onclick="window.print()">인쇄하기</button>
+            </div>
+          </div>
           <div class="print-report-page">${clonedReport.outerHTML}</div>
         </body>
       </html>
     `);
     printDocument.close();
-
-    printWindow.setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    }, 300);
+    printWindow.focus();
   };
 
   return (
@@ -418,7 +500,7 @@ function ReportTrendCard({ title, data, dataKey, color, unit }) {
       </div>
 
       <div className="h-24">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer className="report-screen-chart" width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
             <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" vertical={false} />
             <XAxis
@@ -451,8 +533,82 @@ function ReportTrendCard({ title, data, dataKey, color, unit }) {
             />
           </LineChart>
         </ResponsiveContainer>
+        <StaticReportLineChart data={data} dataKey={dataKey} color={color} />
       </div>
     </div>
+  );
+}
+
+function StaticReportLineChart({ data, dataKey, color }) {
+  const width = 320;
+  const height = 96;
+  const padding = { top: 12, right: 12, bottom: 20, left: 12 };
+  const points = data
+    .map((item, index) => ({ ...item, index, value: toChartNumber(item[dataKey]) }))
+    .filter(item => item.value !== null);
+
+  if (points.length === 0) {
+    return (
+      <svg className="report-print-chart hidden" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="표시할 그래프 데이터 없음">
+        <text x={width / 2} y={height / 2} textAnchor="middle" fill="#94a3b8" fontSize="11" fontWeight="700">
+          표시할 데이터 없음
+        </text>
+      </svg>
+    );
+  }
+
+  const values = points.map(point => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const valueRange = maxValue - minValue || 1;
+  const xRange = Math.max(data.length - 1, 1);
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+
+  const toX = (index) => padding.left + (index / xRange) * innerWidth;
+  const toY = (value) => padding.top + (1 - ((value - minValue) / valueRange)) * innerHeight;
+  const path = points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(point.index).toFixed(2)} ${toY(point.value).toFixed(2)}`)
+    .join(' ');
+  const firstLabel = data[0]?.dateLabel || '';
+  const lastLabel = data[data.length - 1]?.dateLabel || '';
+
+  return (
+    <svg className="report-print-chart hidden" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="보고서 기간 내 추이">
+      {[0, 1, 2].map((line) => {
+        const y = padding.top + (line / 2) * innerHeight;
+        return (
+          <line
+            key={line}
+            x1={padding.left}
+            x2={width - padding.right}
+            y1={y}
+            y2={y}
+            stroke="#e5e7eb"
+            strokeDasharray="4 4"
+            strokeWidth="1"
+          />
+        );
+      })}
+      <path d={path} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {points.map(point => (
+        <circle
+          key={`${point.date}-${point.index}`}
+          cx={toX(point.index)}
+          cy={toY(point.value)}
+          r="3"
+          fill={color}
+          stroke="#ffffff"
+          strokeWidth="2"
+        />
+      ))}
+      <text x={padding.left} y={height - 4} fill="#9ca3af" fontSize="10" fontWeight="700">
+        {firstLabel}
+      </text>
+      <text x={width - padding.right} y={height - 4} textAnchor="end" fill="#9ca3af" fontSize="10" fontWeight="700">
+        {lastLabel}
+      </text>
+    </svg>
   );
 }
 
