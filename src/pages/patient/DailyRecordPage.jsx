@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { capdApi } from '../../api/apiClient';
-import { normalizeCapd, toCapdPayload, toDateKey, toKoreanDate } from '../../api/adapters';
+import { normalizeCapd, normalizeSession, toCapdPayload, toDateKey, toKoreanDate } from '../../api/adapters';
 
 const CAPD_CONFLICT_STATUS = 409;
 const CAPD_CONFLICT_MESSAGE = '오늘 기록은 이미 제출되었거나 서버에서 수정할 수 없는 상태입니다. 기록 목록에서 확인해 주세요.';
@@ -42,6 +42,24 @@ const toCommonUpdatePayload = (payload) => ({
   note: payload.note,
 });
 
+const toSessionUpdatePayload = (exchange) => ({
+  exchangeTime: exchange.time || exchange.exchangeTime || '00:00',
+  drainVolume: Number(exchange.drained ?? exchange.drainVolume ?? 0),
+  dialysateConcentration: Number(exchange.concentration ?? exchange.dialysateConcentration ?? 0),
+  infusedFluidWeight: Number(exchange.infused ?? exchange.infusedFluidWeight ?? 0),
+});
+
+const createExchangeForm = (exchange = {}) => ({
+  time: exchange.time || exchange.exchangeTime || '08:00',
+  concentration: String(exchange.concentration ?? exchange.dialysateConcentration ?? '1.5'),
+  infused: String(exchange.infused ?? exchange.infusedFluidWeight ?? '2000'),
+  drained: String(exchange.drained ?? exchange.drainVolume ?? ''),
+});
+
+const sortExchangesByTime = (exchangeList = []) => (
+  [...exchangeList].sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
+);
+
 const toDailyInfo = (record) => ({
   turbidity: record.turbidity,
   urineCount: record.urineCount,
@@ -70,6 +88,8 @@ export default function DailyRecordPage() {
     infused: '2000',
     drained: '',
   });
+  const [editingExchangeIndex, setEditingExchangeIndex] = useState(null);
+  const [editingExchange, setEditingExchange] = useState(createExchangeForm());
 
   const applyRecordToState = useCallback((record) => {
     const normalizedRecord = normalizeCapd(record);
@@ -184,9 +204,32 @@ export default function DailyRecordPage() {
     setCurrentExchange(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleEditingExchangeChange = (e) => {
+    const { name, value } = e.target;
+    setEditingExchange(prev => ({ ...prev, [name]: value }));
+  };
+
   const currentUfValue = (currentExchange.drained && currentExchange.infused)
     ? Number(currentExchange.drained) - Number(currentExchange.infused)
     : 0;
+  const editingUfValue = (editingExchange.drained && editingExchange.infused)
+    ? Number(editingExchange.drained) - Number(editingExchange.infused)
+    : 0;
+
+  const handleStartEditExchange = (index) => {
+    if (isTempSaveBlocked) {
+      alert(CAPD_CONFLICT_MESSAGE);
+      return;
+    }
+
+    setEditingExchangeIndex(index);
+    setEditingExchange(createExchangeForm(exchanges[index]));
+  };
+
+  const handleCancelEditExchange = () => {
+    setEditingExchangeIndex(null);
+    setEditingExchange(createExchangeForm());
+  };
 
   const handleAddExchange = async () => {
     if (isTempSaveBlocked) {
@@ -212,7 +255,7 @@ export default function DailyRecordPage() {
       uf: currentUfValue,
     };
 
-    const newExchangesList = [...exchanges, newExchange].sort((a, b) => a.time.localeCompare(b.time));
+    const newExchangesList = sortExchangesByTime([...exchanges, newExchange]);
     setExchanges(newExchangesList);
 
     const saved = await saveTempRecord(dailyInfo, newExchangesList, tempRecordId ? {
@@ -225,6 +268,55 @@ export default function DailyRecordPage() {
     const now = new Date();
     const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     setCurrentExchange({ time: timeString, concentration: '1.5', infused: '2000', drained: '' });
+  };
+
+  const handleUpdateExchange = async () => {
+    if (isTempSaveBlocked) {
+      alert(CAPD_CONFLICT_MESSAGE);
+      return;
+    }
+
+    if (editingExchangeIndex === null) return;
+
+    if (!editingExchange.infused || !editingExchange.drained) {
+      alert('주입량과 배액량을 모두 입력해 주세요.');
+      return;
+    }
+
+    const targetExchange = exchanges[editingExchangeIndex];
+    const sessionId = targetExchange?.capdSessionId || targetExchange?.id;
+    const nextExchange = {
+      ...targetExchange,
+      ...editingExchange,
+      sessionNumber: targetExchange?.sessionNumber ?? editingExchangeIndex + 1,
+      infused: Number(editingExchange.infused),
+      drained: Number(editingExchange.drained),
+      uf: editingUfValue,
+    };
+
+    try {
+      setAutoSaveStatus('서버 임시 저장 중');
+
+      if (sessionId) {
+        const updatedSession = await capdApi.updateSession(sessionId, toSessionUpdatePayload(nextExchange));
+        const normalizedSession = normalizeSession(updatedSession, editingExchangeIndex);
+        setExchanges(prev => sortExchangesByTime(prev.map((exchange, index) => (
+          index === editingExchangeIndex
+            ? { ...exchange, ...normalizedSession }
+            : exchange
+        ))));
+      } else {
+        setExchanges(prev => sortExchangesByTime(prev.map((exchange, index) => (
+          index === editingExchangeIndex ? nextExchange : exchange
+        ))));
+      }
+
+      clearLocalDraft(formattedDate);
+      setAutoSaveStatus('서버 임시 저장 완료');
+      handleCancelEditExchange();
+    } catch (error) {
+      setAutoSaveStatus(error.message || '서버 임시 저장 실패');
+    }
   };
 
   const handleRemoveExchange = async (index) => {
@@ -408,6 +500,14 @@ export default function DailyRecordPage() {
                     </span>
                     <button
                       type="button"
+                      onClick={() => handleStartEditExchange(index)}
+                      disabled={isTempSaveBlocked}
+                      className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-black text-slate-500 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-gray-200"
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleRemoveExchange(index)}
                       disabled={isTempSaveBlocked}
                       className="px-2 text-gray-300 hover:text-red-500 disabled:cursor-not-allowed disabled:text-gray-200"
@@ -417,6 +517,93 @@ export default function DailyRecordPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {editingExchangeIndex !== null && (
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-black text-slate-800">
+                    {editingExchangeIndex + 1}회차 수정
+                  </div>
+                  <div className="text-xs font-bold text-slate-400">
+                    기존 입력값을 불러온 뒤 수정합니다.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelEditExchange}
+                  className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-400 hover:text-slate-700"
+                >
+                  닫기
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="교환 시각">
+                    <input
+                      type="time"
+                      name="time"
+                      value={editingExchange.time}
+                      onChange={handleEditingExchangeChange}
+                      className="ios-fixed-time-input h-12 min-h-12 w-full min-w-0 appearance-none bg-white border border-gray-200 rounded-xl px-3 text-base leading-none focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </Field>
+                  <Field label="투석액 농도 (%)">
+                    <select
+                      name="concentration"
+                      value={editingExchange.concentration}
+                      onChange={handleEditingExchangeChange}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="1.5">1.5%</option>
+                      <option value="2.5">2.5%</option>
+                      <option value="4.25">4.25%</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="주입량 (mL)">
+                    <input
+                      type="number"
+                      name="infused"
+                      value={editingExchange.infused}
+                      onChange={handleEditingExchangeChange}
+                      placeholder="예: 2000"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </Field>
+                  <Field label="배액량 (mL)">
+                    <input
+                      type="number"
+                      name="drained"
+                      value={editingExchange.drained}
+                      onChange={handleEditingExchangeChange}
+                      placeholder="예: 2200"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </Field>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className={`flex-1 rounded-xl border p-3 ${editingUfValue < 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-blue-100 text-blue-700'}`}>
+                    <div className="text-xs font-bold">수정 제수량</div>
+                    <div className="text-lg font-black">
+                      {editingUfValue > 0 ? `+${editingUfValue}` : editingUfValue} <span className="text-xs font-medium">mL</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUpdateExchange}
+                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-blue-700"
+                  >
+                    수정 완료
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
