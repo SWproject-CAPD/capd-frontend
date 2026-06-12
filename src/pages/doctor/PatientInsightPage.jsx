@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Sparkline from '../../components/Sparkline';
@@ -117,7 +117,7 @@ export default function PatientInsightPage() {
         />
       </div>
 
-      <div className="grid min-h-[420px] grid-cols-1 gap-4 lg:grid-cols-3 xl:min-h-0 xl:flex-[1.2]">
+      <div className="grid min-h-105 grid-cols-1 gap-4 lg:grid-cols-3 xl:min-h-0 xl:flex-[1.2]">
         <div className="lg:col-span-2 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col min-h-0">
           <button
             onClick={() => navigate(`/doctor/${id}/charts`)}
@@ -180,7 +180,7 @@ export default function PatientInsightPage() {
         </div>
       </div>
 
-      <div className="grid min-h-[360px] flex-1 grid-cols-1 gap-4 lg:grid-cols-3 xl:min-h-0">
+      <div className="grid min-h-90 flex-1 grid-cols-1 gap-4 lg:grid-cols-3 xl:min-h-0">
         <div className="lg:col-span-2 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 relative h-full flex flex-col min-h-0">
           <button
             onClick={() => navigate(`/doctor/${id}/logs`)}
@@ -192,7 +192,7 @@ export default function PatientInsightPage() {
           <h3 className="text-base font-bold text-gray-800 mb-3 shrink-0">최근 3일 투석 상세 기록</h3>
 
           <div className="min-h-0 flex-1 overflow-auto border-t border-gray-100 custom-scrollbar">
-            <table className="min-w-[560px] w-full text-left text-xs md:text-sm">
+            <table className="min-w-140 w-full text-left text-xs md:text-sm">
               <thead className="bg-slate-50 text-gray-500 font-bold sticky top-0 shadow-sm">
                 <tr>
                   <th className="px-3 py-2.5">날짜 / 시간</th>
